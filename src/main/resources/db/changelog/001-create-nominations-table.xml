@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="001-create-nominations-table" author="team">
+        <createTable tableName="nominations">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="nominator_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="nominator_email" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="nominee_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="nominee_email" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="practice" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="location" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="what_text" type="CLOB">
+                <constraints nullable="false"/>
+            </column>
+            <column name="how_text" type="CLOB">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rejection_reason" type="CLOB"/>
+            <column name="original_nomination_id" type="UUID"/>
+            <column name="coordinator_email" type="VARCHAR(255)"/>
+            <column name="submitted_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="decision_date" type="TIMESTAMP"/>
+            <column name="comms_sent_date" type="TIMESTAMP"/>
+        </createTable>
+
+        <!-- Liquibase can auto-generate this rollback for a plain createTable, but it's
+             written explicitly so the rollback path is visible in code review, not implicit. -->
+        <rollback>
+            <dropTable tableName="nominations"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

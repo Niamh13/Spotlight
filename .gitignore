@@ -1,0 +1,29 @@
+# Build output
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Local H2 database - the schema is owned by Liquibase, so this is disposable.
+# Recreate with: mvn liquibase:update
+data/
+*.db
+*.mv.db
+*.trace.db
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+nbproject/private/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
