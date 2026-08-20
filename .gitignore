@@ -23,7 +23,10 @@ data/
 # pasted into a tracked file is public the moment it is pushed and remains
 # in the history even after it is deleted.
 #
-# Keep local secrets in a file git already ignores:
-*.env
+# Keep local secrets in .env, which is read at startup by spring-dotenv.
+# .env.example IS committed - it documents what goes in .env without carrying
+# any actual values.
 .env
+*.env
+!.env.example
 application-local.properties

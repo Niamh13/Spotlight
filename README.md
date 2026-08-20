@@ -20,6 +20,10 @@ no API key required.
 mvn spring-boot:run
 ```
 
+That is genuinely the whole setup. **You do not need an API key to run or test
+this** — see [AI evaluation](#using-the-real-groq-evaluator) for what happens
+without one.
+
 Then open **http://localhost:8080**.
 
 The H2 console is at `http://localhost:8080/h2-console` — JDBC URL
@@ -172,20 +176,34 @@ AI evaluator: mock (rule-of-thumb, no network) - no GROQ_API_KEY set [ai.evaluat
 AI evaluator: Groq (live model) [ai.evaluator=auto]
 ```
 
-For real evaluation, set a key. Groq was chosen for its genuinely free,
-no-credit-card tier.
+### If you cloned this and want the real model
 
-1. Get one at console.groq.com.
-2. Set it as an environment variable — **never in a properties file.** This
-   repository is public; a key committed here is public the moment it is
-   pushed, and stays in the history afterwards.
+**The key is not in the repository and never will be** — `.env` is gitignored,
+so it does not travel with a clone. You need your own. It takes about a minute:
+
+1. Sign up at console.groq.com — free tier, no card required.
+2. Create an API key.
+3. In the project root:
    ```bash
-   export GROQ_API_KEY=gsk_...          # Mac/Linux
-   $env:GROQ_API_KEY = "gsk_..."        # Windows PowerShell
+   cp .env.example .env     # copy .env.example .env   on Windows
    ```
-   `application.properties` reads it via `groq.api.key=${GROQ_API_KEY:}` — the
-   trailing colon defaults it to empty rather than failing startup.
-3. Restart.
+   Open `.env` and paste your key after `GROQ_API_KEY=`.
+4. `mvn spring-boot:run`. The startup log should now say `Groq (live model)`.
+
+An environment variable works too and takes precedence over the file, which is
+how CI and deployed environments override it:
+
+```bash
+export GROQ_API_KEY=gsk_...          # Mac/Linux
+$env:GROQ_API_KEY = "gsk_..."        # Windows PowerShell
+```
+
+`application.properties` resolves `groq.api.key` from the environment variable
+first, then `.env`, then falls back to empty.
+
+**Never put a key in `application.properties`.** This repository is public; a
+key committed there is public the moment it is pushed, and remains in the
+history after it is deleted.
 
 Force either side with `ai.evaluator=groq` or `ai.evaluator=mock`. Model
 defaults to `openai/gpt-oss-20b`; override with `groq.api.model`.
