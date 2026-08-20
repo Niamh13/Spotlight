@@ -814,3 +814,41 @@ pre.log .no { color: var(--critical); font-weight: 600; }
   font-size: 12px; color: var(--ink-2);
 }
 .greyscale input { width: auto; margin: 0; cursor: pointer; }
+
+/* ---------------- completeness check ---------------- */
+.completeness {
+  border: 1px solid var(--border); border-radius: 11px;
+  padding: 14px 16px; margin-bottom: 16px; background: var(--surface-2);
+}
+.completeness.complete { border-color: color-mix(in srgb, var(--good) 40%, var(--border)); }
+.completeness.incomplete { border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); }
+.completeness__head {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  font-size: 13.5px; margin-bottom: 11px;
+}
+.completeness__head .muted { font-size: 12.5px; }
+.completeness__note { margin: 10px 0 0; font-size: 12.5px; }
+.completeness__action {
+  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border);
+  font-size: 12.5px;
+}
+
+.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.checkitem { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; }
+.checkitem__mark {
+  width: 18px; height: 18px; border-radius: 50%; flex: none; margin-top: 1px;
+  display: grid; place-items: center; font-size: 10px; font-weight: 700;
+}
+.checkitem.pass .checkitem__mark {
+  background: color-mix(in srgb, var(--good) 16%, var(--surface)); color: var(--good);
+}
+.checkitem.fail .checkitem__mark {
+  background: color-mix(in srgb, var(--critical) 14%, var(--surface)); color: var(--critical);
+}
+.checkitem__body { min-width: 0; }
+.checkitem__label { display: block; }
+.checkitem.pass .checkitem__label { color: var(--ink-2); }
+.checkitem__remedy {
+  display: block; font-size: 12.5px; color: var(--ink-2); margin-top: 3px;
+}

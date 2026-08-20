@@ -1858,10 +1858,12 @@
     return '<div class="actionbar">' +
         '<span class="actionbar__label">Deciding as <b>' + esc(persona().email) + "</b></span>" +
         '<div class="spacer"></div>' +
+        '<button type="button" class="btn-sm" id="checkCompleteness">☑ Check completeness</button>' +
         '<button type="button" class="btn-approve btn-sm" data-act="approve">✓ Approve</button>' +
         '<button type="button" class="btn-reject btn-sm" data-act="reject">✕ Reject</button>' +
         '<button type="button" class="btn-sm" data-act="request-resubmission">↩ Request resubmission</button>' +
       "</div>" +
+      '<div id="completenessBox"></div>' +
       '<form class="reason-form" id="reasonForm" hidden>' +
         '<div class="field" style="margin-bottom:10px">' +
           '<label for="reasonText" id="reasonLabel"></label>' +
@@ -1879,6 +1881,29 @@
 
   function wireActions(n) {
     var pendingAct = null;
+
+    var completenessBtn = $("#checkCompleteness");
+    if (completenessBtn) completenessBtn.addEventListener("click", function () {
+      completenessBtn.disabled = true;
+      completenessBtn.textContent = "Checking…";
+      fetch(API + "/" + n.id + "/completeness")
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (result) {
+          completenessBtn.disabled = false;
+          completenessBtn.textContent = "☑ Check completeness";
+          if (!result) {
+            $("#completenessBox").innerHTML =
+              '<p style="color:var(--critical);font-size:12.5px">' +
+              "Couldn't run the check.</p>";
+            return;
+          }
+          renderCompleteness(result);
+        })
+        .catch(function () {
+          completenessBtn.disabled = false;
+          completenessBtn.textContent = "☑ Check completeness";
+        });
+    });
 
     $$("[data-act]").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -1922,12 +1947,70 @@
       e.preventDefault();
       var reason = $("#reasonText").value.trim();
       var comment = $("#commentText").value.trim();
+      // The completeness shortcut opens this form directly, without going
+      // through a data-act button, so take the action from the form itself.
+      if (!pendingAct) { pendingAct = form.getAttribute("data-act"); }
       if (pendingAct !== "approve" && !reason) {
         $("#reasonErr").textContent = "A reason is required.";
         $("#reasonErr").style.display = "block";
         return;
       }
       submitDecision(n, pendingAct, pendingAct === "approve" ? null : reason, comment);
+    });
+  }
+
+  /* The completeness result: a checklist, plus the send-back text it produces.
+     The "use this" button is the point of the feature - it turns "this is thin"
+     into a specific, consistent request without the coordinator writing a
+     paragraph, and it stays editable because it is a starting point. */
+  function renderCompleteness(result) {
+    var box = $("#completenessBox");
+    if (!box) return;
+
+    var rows = result.criteria.map(function (c) {
+      return '<li class="checkitem ' + (c.passed ? "pass" : "fail") + '">' +
+        '<span class="checkitem__mark" aria-hidden="true">' + (c.passed ? "✓" : "✕") + "</span>" +
+        '<span class="checkitem__body"><span class="checkitem__label">' + esc(c.label) + "</span>" +
+        (c.passed ? "" : '<span class="checkitem__remedy">' + esc(c.remedy) + "</span>") +
+        "</span></li>";
+    }).join("");
+
+    box.innerHTML =
+      '<div class="completeness ' + (result.complete ? "complete" : "incomplete") + '">' +
+        '<div class="completeness__head">' +
+          "<b>" + (result.complete
+            ? "Complete — nothing missing"
+            : (result.totalCount - result.passedCount) + " of " + result.totalCount + " checks not met") +
+          "</b>" +
+          '<span class="muted">' + result.passedCount + "/" + result.totalCount + " passed</span>" +
+          '<div class="spacer"></div>' +
+          '<button type="button" class="linkish" id="closeCompleteness">Hide</button>' +
+        "</div>" +
+        '<ul class="checklist">' + rows + "</ul>" +
+        (result.complete
+          ? '<p class="completeness__note muted">This is about reviewability, not merit — ' +
+            "it says the nomination can be judged, not that it should be approved.</p>"
+          : '<div class="completeness__action">' +
+            '<button type="button" class="btn-sm" id="useCompleteness">Use as send-back message</button>' +
+            '<span class="muted">Fills the resubmission box with what is missing. You can edit it.</span>' +
+            "</div>") +
+      "</div>";
+
+    $("#closeCompleteness").addEventListener("click", function () { box.innerHTML = ""; });
+
+    var use = $("#useCompleteness");
+    if (use) use.addEventListener("click", function () {
+      var form = $("#reasonForm");
+      var reasonField = $("#reasonText").closest(".field");
+      reasonField.hidden = false;
+      $("#reasonLabel").textContent =
+        "What does the nominator need to add? Be specific — they'll build on their original wording.";
+      $("#reasonConfirm").textContent = "Send back for detail";
+      $("#reasonText").value = result.suggestedMessage;
+      $("#reasonErr").textContent = "";
+      form.hidden = false;
+      form.setAttribute("data-act", "request-resubmission");
+      $("#reasonText").focus();
     });
   }
 
