@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <!-- One row per failing criterion on a request. Same shape as
+         nomination_ai_flags (002): a JPA @ElementCollection of an enum,
+         stored as its name. -->
+    <changeSet id="004-create-resubmission-request-criteria-table" author="team">
+        <createTable tableName="resubmission_request_criteria">
+            <column name="resubmission_request_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="criterion" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="resubmission_request_criteria"
+                baseColumnNames="resubmission_request_id"
+                referencedTableName="resubmission_requests"
+                referencedColumnNames="id"
+                constraintName="fk_resubmission_request_criteria_request"/>
+
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="resubmission_request_criteria"
+                                       constraintName="fk_resubmission_request_criteria_request"/>
+            <dropTable tableName="resubmission_request_criteria"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
