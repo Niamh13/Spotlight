@@ -8,36 +8,46 @@ public class NominationResponse {
 
     private final UUID id;
     private final String nominatorName;
+    // Emails are exposed alongside the names because the display name is too weak
+    // a key to identify a person by: the UI filters "recognition involving me" on
+    // these, and a coordinator needs to know who to contact about a decision.
+    private final String nominatorEmail;
     private final String nomineeName;
+    private final String nomineeEmail;
     private final String practice;
     private final String location;
     private final String whatText;
     private final String howText;
     private final NominationStatus status;
-    private final List<AiFlag> aiFlags;
+    private final List<NominationFlagResponse> aiFlags;
+    private final Integer aiScore;
+    private final String aiRationale;
+    private final String aiPromptVersion;
+    private final AiEvaluationStatus aiEvaluationStatus;
     private final String rejectionReason;
     private final UUID originalNominationId;
     private final Instant submittedAt;
     private final Instant decisionDate;
     private final Instant commsSentDate;
-    /** Completeness check. Null when the caller didn't ask for one. */
-    private final EvaluationResponse evaluation;
 
     public NominationResponse(Nomination nomination) {
-        this(nomination, null);
-    }
-
-    public NominationResponse(Nomination nomination, NominationEvaluation evaluation) {
-        this.evaluation = evaluation == null ? null : new EvaluationResponse(evaluation);
         this.id = nomination.getId();
         this.nominatorName = nomination.getNominatorName();
+        this.nominatorEmail = nomination.getNominatorEmail();
         this.nomineeName = nomination.getNomineeName();
+        this.nomineeEmail = nomination.getNomineeEmail();
         this.practice = nomination.getPractice();
         this.location = nomination.getLocation();
         this.whatText = nomination.getWhatText();
         this.howText = nomination.getHowText();
         this.status = nomination.getStatus();
-        this.aiFlags = nomination.getAiFlags();
+        this.aiFlags = nomination.getAiFlags().stream()
+                .map(NominationFlagResponse::new)
+                .collect(java.util.stream.Collectors.toList());
+        this.aiScore = nomination.getAiScore();
+        this.aiRationale = nomination.getAiRationale();
+        this.aiPromptVersion = nomination.getAiPromptVersion();
+        this.aiEvaluationStatus = nomination.getAiEvaluationStatus();
         this.rejectionReason = nomination.getRejectionReason();
         this.originalNominationId = nomination.getOriginalNominationId();
         this.submittedAt = nomination.getSubmittedAt();
@@ -53,8 +63,16 @@ public class NominationResponse {
         return nominatorName;
     }
 
+    public String getNominatorEmail() {
+        return nominatorEmail;
+    }
+
     public String getNomineeName() {
         return nomineeName;
+    }
+
+    public String getNomineeEmail() {
+        return nomineeEmail;
     }
 
     public String getPractice() {
@@ -77,8 +95,24 @@ public class NominationResponse {
         return status;
     }
 
-    public List<AiFlag> getAiFlags() {
+    public List<NominationFlagResponse> getAiFlags() {
         return aiFlags;
+    }
+
+    public Integer getAiScore() {
+        return aiScore;
+    }
+
+    public String getAiRationale() {
+        return aiRationale;
+    }
+
+    public String getAiPromptVersion() {
+        return aiPromptVersion;
+    }
+
+    public AiEvaluationStatus getAiEvaluationStatus() {
+        return aiEvaluationStatus;
     }
 
     public String getRejectionReason() {
@@ -99,9 +133,5 @@ public class NominationResponse {
 
     public Instant getCommsSentDate() {
         return commsSentDate;
-    }
-
-    public EvaluationResponse getEvaluation() {
-        return evaluation;
     }
 }

@@ -1,8 +1,7 @@
 package com.version1.recognition.nomination;
 
-public enum NominationStatus {
-    PENDING_REVIEW,
+public enum AuditAction {
     APPROVED,
     REJECTED,
-    NEEDS_RESUBMISSION
+    RESUBMISSION_REQUESTED
 }

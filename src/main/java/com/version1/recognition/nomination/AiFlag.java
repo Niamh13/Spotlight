@@ -10,5 +10,12 @@ public enum AiFlag {
     ROUTINE_TASK_LANGUAGE,
     WEAK_JUSTIFICATION,
     REPEAT_NOMINATION_CONSECUTIVE_QUARTER,
-    RECIPROCAL_NOMINATION
+    RECIPROCAL_NOMINATION,
+
+    /**
+     * Nominator and nominee are the same person. Submission already blocks this
+     * on an exact email match, so a flag here means the pair matched some other
+     * way - same name, different address - or the row predates that check.
+     */
+    SELF_NOMINATION
 }

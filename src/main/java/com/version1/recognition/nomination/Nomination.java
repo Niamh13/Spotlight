@@ -47,16 +47,29 @@ public class Nomination {
     @Column(nullable = false)
     private NominationStatus status;
 
-    // Advisory only - the coordinator makes the decision, AI never does (Epic 2).
+    // Advisory only - the coordinator makes the decision, neither the rules nor
+    // the AI ever do (Epic 2). Each entry carries the reason it was raised, so a
+    // reviewer can act on the flag without re-deriving the judgement themselves.
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "nomination_ai_flags", joinColumns = @JoinColumn(name = "nomination_id"))
-    @Enumerated(EnumType.STRING)
-    @Column(name = "flag")
-    private List<AiFlag> aiFlags = new ArrayList<>();
+    private List<NominationFlag> aiFlags = new ArrayList<>();
 
     // Set when a coordinator rejects (Epic 3) - mandatory at that point, null until then.
     @Lob
     private String rejectionReason;
+
+    // AI evaluation results (Epic 2). Score/rationale come from the Groq call;
+    // null until an evaluation runs. promptVersion records which prompt file
+    // produced this result, for traceability if the prompt changes later.
+    private Integer aiScore;
+
+    @Lob
+    private String aiRationale;
+
+    private String aiPromptVersion;
+
+    @Enumerated(EnumType.STRING)
+    private AiEvaluationStatus aiEvaluationStatus;
 
     // Links a resubmission back to the nomination it replaces (Epic 3).
     private UUID originalNominationId;
@@ -135,12 +148,18 @@ public class Nomination {
         this.status = status;
     }
 
-    public List<AiFlag> getAiFlags() {
+    public List<NominationFlag> getAiFlags() {
         return aiFlags;
     }
 
-    public void setAiFlags(List<AiFlag> aiFlags) {
-        this.aiFlags = aiFlags;
+    public void setAiFlags(List<NominationFlag> aiFlags) {
+        // Mutate the existing collection rather than swapping the reference:
+        // Hibernate tracks element collections by identity, and replacing the
+        // instance outright makes a retag throw rather than update in place.
+        this.aiFlags.clear();
+        if (aiFlags != null) {
+            this.aiFlags.addAll(aiFlags);
+        }
     }
 
     public String getRejectionReason() {
@@ -149,6 +168,38 @@ public class Nomination {
 
     public void setRejectionReason(String rejectionReason) {
         this.rejectionReason = rejectionReason;
+    }
+
+    public Integer getAiScore() {
+        return aiScore;
+    }
+
+    public void setAiScore(Integer aiScore) {
+        this.aiScore = aiScore;
+    }
+
+    public String getAiRationale() {
+        return aiRationale;
+    }
+
+    public void setAiRationale(String aiRationale) {
+        this.aiRationale = aiRationale;
+    }
+
+    public String getAiPromptVersion() {
+        return aiPromptVersion;
+    }
+
+    public void setAiPromptVersion(String aiPromptVersion) {
+        this.aiPromptVersion = aiPromptVersion;
+    }
+
+    public AiEvaluationStatus getAiEvaluationStatus() {
+        return aiEvaluationStatus;
+    }
+
+    public void setAiEvaluationStatus(AiEvaluationStatus aiEvaluationStatus) {
+        this.aiEvaluationStatus = aiEvaluationStatus;
     }
 
     public UUID getOriginalNominationId() {

@@ -1,29 +1,29 @@
 # Build output
 target/
-!.mvn/wrapper/maven-wrapper.jar
+*.class
 
-# Local H2 database - the schema is owned by Liquibase, so this is disposable.
-# Recreate with: mvn liquibase:update
+# Local database file (Liquibase-managed, regenerates from migrations)
 data/
-*.db
-*.mv.db
-*.trace.db
 
-# IDEs
+# IDE
 .idea/
 *.iml
-*.ipr
-*.iws
 .vscode/
 .settings/
-.project
 .classpath
-nbproject/private/
+.project
 
 # OS
 .DS_Store
-Thumbs.db
-desktop.ini
 
-# Logs
-*.log
+# --- Secrets ---
+# application.properties is safe to commit: it reads the Groq key from the
+# GROQ_API_KEY environment variable (groq.api.key=${GROQ_API_KEY:}) rather
+# than holding one. Keep it that way - this repository is public, so a key
+# pasted into a tracked file is public the moment it is pushed and remains
+# in the history even after it is deleted.
+#
+# Keep local secrets in a file git already ignores:
+*.env
+.env
+application-local.properties
