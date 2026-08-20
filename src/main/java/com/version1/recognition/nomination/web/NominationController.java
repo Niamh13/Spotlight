@@ -1,4 +1,8 @@
-package com.version1.recognition.nomination;
+package com.version1.recognition.nomination.web;
+
+import com.version1.recognition.nomination.Nomination;
+import com.version1.recognition.nomination.NominationService;
+import com.version1.recognition.nomination.NominationStatus;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;

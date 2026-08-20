@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <!--
+        Turns the audit log from "what happened" into a full record of "what
+        happened, why, and what the person was told".
+
+        comment  - the coordinator's internal note, kept apart from `reason`
+                   because `reason` is sent to the nominator. Merging them means
+                   either the nominator reads a note meant for colleagues, or the
+                   note never gets written.
+
+        email_*  - the message the decision generated, stored verbatim. Recorded
+                   rather than re-rendered on demand: templates get reworded, and
+                   a record that silently changes to match today's template is
+                   not a record of anything.
+
+        All nullable. Decisions made before this existed genuinely have no note
+        and no captured message, and backfilling either would be inventing
+        evidence in an audit trail - the one place that is least acceptable.
+    -->
+    <changeSet id="008-add-audit-comment-and-email" author="team">
+        <addColumn tableName="nomination_audit_log">
+            <column name="comment" type="CLOB"/>
+            <column name="email_recipient" type="VARCHAR(255)"/>
+            <column name="email_subject" type="VARCHAR(500)"/>
+            <column name="email_body" type="CLOB"/>
+            <column name="email_sent_at" type="TIMESTAMP"/>
+        </addColumn>
+
+        <rollback>
+            <dropColumn tableName="nomination_audit_log" columnName="comment"/>
+            <dropColumn tableName="nomination_audit_log" columnName="email_recipient"/>
+            <dropColumn tableName="nomination_audit_log" columnName="email_subject"/>
+            <dropColumn tableName="nomination_audit_log" columnName="email_body"/>
+            <dropColumn tableName="nomination_audit_log" columnName="email_sent_at"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

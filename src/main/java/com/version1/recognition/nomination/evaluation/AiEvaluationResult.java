@@ -1,4 +1,6 @@
-package com.version1.recognition.nomination;
+package com.version1.recognition.nomination.evaluation;
+
+import com.version1.recognition.nomination.AiFlag;
 
 import java.util.List;
 

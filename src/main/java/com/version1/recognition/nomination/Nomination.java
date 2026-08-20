@@ -1,5 +1,8 @@
 package com.version1.recognition.nomination;
 
+import com.version1.recognition.nomination.evaluation.AiEvaluationStatus;
+import com.version1.recognition.nomination.web.NominationRequest;
+
 import jakarta.persistence.*;
 
 import java.time.Instant;
@@ -32,6 +35,20 @@ public class Nomination {
 
     @Column(nullable = false)
     private String location;
+
+    // Which of the five business categories this nomination is filed under.
+    // Nullable in the database because rows created before categories existed
+    // have none; required on every new submission (see NominationRequest).
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", length = 50)
+    private AwardCategory category;
+
+    // Which of Version 1's six core values the nominator says was demonstrated.
+    // Nullable for rows created before the picker existed; required on every new
+    // submission. The HOW text explains how this particular value was shown.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "core_value", length = 50)
+    private CoreValue coreValue;
 
     // WHAT: the achievement, contribution, or action
     @Lob
@@ -89,7 +106,8 @@ public class Nomination {
     }
 
     public Nomination(String nominatorName, String nominatorEmail, String nomineeName, String nomineeEmail,
-                       String practice, String location, String whatText, String howText,
+                       String practice, String location, AwardCategory category,
+                       CoreValue coreValue, String whatText, String howText,
                        UUID originalNominationId) {
         this.nominatorName = nominatorName;
         this.nominatorEmail = nominatorEmail;
@@ -97,6 +115,8 @@ public class Nomination {
         this.nomineeEmail = nomineeEmail;
         this.practice = practice;
         this.location = location;
+        this.category = category;
+        this.coreValue = coreValue;
         this.whatText = whatText;
         this.howText = howText;
         this.originalNominationId = originalNominationId;
@@ -130,6 +150,22 @@ public class Nomination {
 
     public String getLocation() {
         return location;
+    }
+
+    public AwardCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(AwardCategory category) {
+        this.category = category;
+    }
+
+    public CoreValue getCoreValue() {
+        return coreValue;
+    }
+
+    public void setCoreValue(CoreValue coreValue) {
+        this.coreValue = coreValue;
     }
 
     public String getWhatText() {

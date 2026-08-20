@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------
-   V1 Recognition — application shell.
+   Spotlight — application shell.
 
    Palette. The three recognition types are a categorical set (identity,
    not magnitude), so their hues were run through the palette validator
@@ -82,6 +82,34 @@
   --shadow-lg: 0 12px 32px rgba(0,0,0,0.6);
 }
 
+/* Greyscale. Independent of light/dark - it only replaces the accent hues, so
+   whichever background you chose stays. Applied last so it wins over both
+   palettes above. Every status and category also carries a glyph or a label,
+   so nothing becomes unreadable when the colour goes; that is precisely what
+   this mode is useful for checking. */
+:root[data-palette="grey"] {
+  --brand:    #5A5F66;
+  --star:     #6E727A;
+  --praise:   #5A5F66;
+  --mtm:      #7A7168;
+  --good:     #4F6B4F;
+  --warning:  #7A7159;
+  --critical: #7A5A5A;
+  --info:     #5A6472;
+  --star-soft:   #ECEDEF;
+  --praise-soft: #E9EBEC;
+  --mtm-soft:    #EFEDEA;
+}
+:root[data-palette="grey"][data-theme="dark"],
+:root[data-palette="grey"]:not([data-theme="light"]) {
+  --star-soft:   #232427;
+  --praise-soft: #212325;
+  --mtm-soft:    #262421;
+}
+/* The logo is an image, not a token, so desaturate it directly. */
+:root[data-palette="grey"] .logo__mark svg,
+:root[data-palette="grey"] .starlogo { filter: grayscale(1); }
+
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
@@ -107,13 +135,21 @@ aside {
   background: var(--surface); border-right: 1px solid var(--border);
   display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
 }
-.logo { display: flex; align-items: center; gap: 10px; padding: 20px 18px 18px; }
-.logo .mark {
-  width: 34px; height: 34px; border-radius: 8px; background: var(--brand);
-  color: #fff; font-weight: 700; font-size: 14px;
-  display: grid; place-items: center; letter-spacing: -0.02em;
+.logo {
+  display: flex; align-items: center; gap: 11px;
+  padding: 18px 16px 16px; text-decoration: none; color: inherit;
 }
-.logo .word { font-size: 11.5px; letter-spacing: 0.14em; color: var(--ink-2); font-weight: 600; }
+.logo:hover .logo__name { color: var(--brand); }
+.logo__mark { width: 38px; height: 38px; flex: none; }
+.logo__mark svg { width: 100%; height: 100%; display: block; }
+.logo__words { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.logo__name {
+  font-size: 18px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink);
+}
+.logo__tagline {
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; margin-top: 3px;
+}
 
 nav { padding: 4px 10px; overflow-y: auto; flex: 1 1 auto; }
 nav a {
@@ -171,6 +207,13 @@ nav .navgroup {
 .persona-opt .n { display: block; font-size: 13px; font-weight: 500; }
 .persona-opt .r { display: block; font-size: 11.5px; color: var(--muted); }
 .persona-opt .tick { color: var(--brand); font-size: 13px; flex: none; }
+
+/* Build marker. Small and quiet, but it turns "is my browser showing the new
+   version?" from guesswork into something you can read off the screen. */
+.buildstamp {
+  font-size: 10px; letter-spacing: 0.06em; color: var(--muted);
+  padding: 6px 8px 2px; font-family: ui-monospace, Consolas, monospace;
+}
 
 /* Role marker, so which mode you are in is legible without reading the name. */
 .rolechip {
@@ -400,6 +443,73 @@ textarea { resize: vertical; min-height: 92px; }
   display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
   border-top: 1px solid var(--border); margin-top: 18px; padding-top: 16px;
 }
+
+.field__hint { margin: 6px 0 0; font-size: 12px; color: var(--ink-2); }
+
+/* ---------------- locked identity fields ---------------- */
+.lockedfields {
+  border: 1px solid var(--border); border-radius: 11px;
+  background: var(--surface-2); padding: 13px 15px; margin-bottom: 16px;
+}
+.lockedfields__head {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 11px;
+  font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted);
+}
+.lockedfields__icon { font-size: 12px; }
+.lockedfield { display: flex; flex-direction: column; gap: 3px; }
+.lockedfield__label { font-size: 12.5px; color: var(--ink-2); }
+.lockedfield__value { font-size: 13.5px; font-weight: 600; word-break: break-all; }
+.lockedfields__note { margin: 11px 0 0; font-size: 12px; color: var(--muted); }
+
+/* ---------------- quarter countdown ---------------- */
+.quarterchip {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+  background: var(--praise-soft); color: var(--brand); white-space: nowrap;
+}
+.quarterchip.urgent {
+  background: color-mix(in srgb, var(--warning) 22%, var(--surface)); color: var(--ink);
+}
+.quarterchip.closed {
+  background: color-mix(in srgb, var(--critical) 14%, var(--surface)); color: var(--ink);
+}
+
+/* ---------------- quarters view ---------------- */
+.quartercard {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 14px; overflow: hidden;
+}
+.quartercard > summary {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 14px 18px; cursor: pointer; list-style: none;
+}
+.quartercard > summary::-webkit-details-marker { display: none; }
+.quartercard > summary::before {
+  content: "▸"; color: var(--muted); font-size: 11px; flex: none;
+}
+.quartercard[open] > summary::before { content: "▾"; }
+.quartercard[open] > summary { border-bottom: 1px solid var(--border); }
+.quartercard__label {
+  font-size: 14.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;
+}
+.quartercard__stats { font-size: 12.5px; color: var(--ink-2); flex: 1 1 auto; }
+.quartercard__deadline { font-size: 12px; white-space: nowrap; }
+
+/* Category marker. Five categories is past the point where hue alone is
+   readable, so the label is always present and the dot is a secondary cue. */
+.catchip {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; white-space: nowrap;
+}
+.catchip__dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+
+.filterbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 11px 18px; border-bottom: 1px solid var(--border);
+  background: var(--surface-2); font-size: 12.5px;
+}
+.filterbar label { color: var(--ink-2); font-weight: 500; }
+.filterbar select { width: auto; min-width: 190px; font-size: 12.5px; padding: 6px 9px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
@@ -639,3 +749,68 @@ pre.log .no { color: var(--critical); font-weight: 600; }
   .row2 { grid-template-columns: 1fr; }
   .toast-host { top: auto; bottom: 16px; right: 12px; left: 12px; max-width: none; }
 }
+
+
+/* ---------------- review progress ---------------- */
+.progress {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 15px 17px; margin-bottom: 16px; box-shadow: var(--shadow);
+}
+.progress__head {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  font-size: 13.5px; margin-bottom: 9px;
+}
+.progress__head .muted { font-size: 12.5px; }
+.progress__track {
+  height: 9px; border-radius: 999px; background: var(--grid); overflow: hidden;
+}
+.progress__fill {
+  height: 100%; border-radius: 999px; background: var(--brand);
+  transition: width 0.35s ease;
+}
+.progress__legend { font-size: 12px; margin-top: 7px; }
+@media (prefers-reduced-motion: reduce) { .progress__fill { transition: none; } }
+
+/* ---------------- clickable KPI tiles ---------------- */
+.kpi--clickable {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  font-family: inherit; position: relative;
+}
+.kpi--clickable:hover { border-color: var(--muted); }
+.kpi--clickable:hover .kpi__cue { opacity: 1; }
+.kpi__cue {
+  position: absolute; right: 14px; bottom: 12px;
+  font-size: 11.5px; color: var(--brand); opacity: 0; transition: opacity 0.15s;
+}
+@media (prefers-reduced-motion: reduce) { .kpi__cue { transition: none; } }
+
+/* ---------------- notes and generated messages ---------------- */
+.tl-note {
+  display: block; font-size: 12.5px; color: var(--ink-2); margin-top: 5px;
+  padding: 7px 10px; border-radius: 8px; background: var(--surface-2);
+  border-left: 2px solid var(--border);
+}
+.emaillog { margin-top: 7px; }
+.emaillog summary {
+  cursor: pointer; font-size: 12.5px; color: var(--ink-2); padding: 3px 0;
+}
+.emaillog__tag {
+  display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 1px 6px; border-radius: 4px;
+  background: var(--praise-soft); color: var(--brand);
+}
+.emaillog__meta { font-size: 11.5px; margin: 5px 0; }
+.emaillog__body {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 11px 13px; font-size: 12px; line-height: 1.55; white-space: pre-wrap;
+  max-height: 320px; overflow-y: auto; margin: 0;
+  font-family: ui-monospace, Consolas, monospace; color: var(--ink-2);
+}
+
+/* ---------------- greyscale toggle ---------------- */
+.themebar--sub { border-top: none; padding-top: 0; }
+.greyscale {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 12px; color: var(--ink-2);
+}
+.greyscale input { width: auto; margin: 0; cursor: pointer; }

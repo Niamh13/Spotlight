@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <!--
+        The five business categories a nomination is filed under.
+
+        Nullable, despite being required on every new submission. Rows created
+        before this column existed genuinely have no category, and inventing one
+        for them would put a fabricated value into the very reports the column
+        exists to produce. The requirement is enforced at the point of entry
+        (NominationRequest) where a person can actually answer it, and the
+        dashboard shows "Uncategorised" for the older rows.
+    -->
+    <changeSet id="007-add-award-category" author="team">
+        <addColumn tableName="nominations">
+            <column name="category" type="VARCHAR(50)"/>
+        </addColumn>
+        <rollback>
+            <dropColumn tableName="nominations" columnName="category"/>
+        </rollback>
+    </changeSet>
+
+    <!--
+        Categorise the seeded demo rows, so the category filter, the per-category
+        breakdown and the export all have something to show on a fresh clone.
+        Chosen to match what each nomination actually describes rather than
+        spread evenly for the sake of it: the distribution is meant to look like
+        a real quarter, where Performance & Efficiency crowds out Compliance.
+    -->
+    <changeSet id="007-categorise-seed-nominations" author="team" context="demo">
+        <update tableName="nominations">
+            <column name="category" value="PERFORMANCE_AND_EFFICIENCY"/>
+            <where>id = 'a1000001-0000-4000-8000-000000000001'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="category" value="PERFORMANCE_AND_EFFICIENCY"/>
+            <where>id = 'a1000002-0000-4000-8000-000000000002'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="category" value="COLLABORATION_AND_ENGAGEMENT"/>
+            <where>id = 'a1000003-0000-4000-8000-000000000003'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="category" value="QUALITY_AND_COMPLIANCE"/>
+            <where>id = 'a1000004-0000-4000-8000-000000000004'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="category" value="QUALITY_AND_COMPLIANCE"/>
+            <where>id = 'a1000005-0000-4000-8000-000000000005'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="category" value="CUSTOMER_IMPACT"/>
+            <where>id = 'a1000006-0000-4000-8000-000000000006'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="category" value="CUSTOMER_IMPACT"/>
+            <where>id = 'a1000007-0000-4000-8000-000000000007'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="category" value="COLLABORATION_AND_ENGAGEMENT"/>
+            <where>id = 'a1000008-0000-4000-8000-000000000008'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="category" value="CUSTOMER_IMPACT"/>
+            <where>id = 'a1000009-0000-4000-8000-000000000009'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="category" value="INNOVATION_AND_GROWTH"/>
+            <where>id = 'a1000010-0000-4000-8000-000000000010'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="category" value="PERFORMANCE_AND_EFFICIENCY"/>
+            <where>id = 'a1000011-0000-4000-8000-000000000011'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="category" value="INNOVATION_AND_GROWTH"/>
+            <where>id = 'a1000012-0000-4000-8000-000000000012'</where>
+        </update>
+
+        <rollback>
+            <update tableName="nominations">
+                <column name="category" value="null"/>
+                <where>id LIKE 'a10000%'</where>
+            </update>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

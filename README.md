@@ -1,221 +1,298 @@
-# Star Awards — Recognition Platform (Java / Spring Boot)
+# Spotlight — Star Awards Recognition Platform
 
-Prototype build for the Star Awards case study, targeting an Aug 29 delivery.
-Built incrementally, epic by epic.
+Java / Spring Boot build of the Star Awards case study: employees submit
+nominations through a guided form, an AI pass and a set of rules flag the weak
+ones, and a coordinator reviews, decides and has the outcome communications
+written for them.
 
-## What's built so far
+Built incrementally, epic by epic. This is a working prototype, not a
+production deployment — see [Known gaps](#known-gaps) before drawing
+conclusions from it.
 
-**Epic 1 — Submission**
-- `POST /api/nominations` — WHAT/HOW fields, practice, location, nominee/
-  nominator identity. Self-nomination blocked (`400` if nominator email ==
-  nominee email).
-- Resubmission support: pass `originalNominationId` to link a new submission
-  back to a rejected/needs-resubmission one.
-- `GET /api/nominations/{id}`, `GET /api/nominations?status=PENDING_REVIEW`
-  (status filter is optional — omit it to get everything).
+---
 
-**Epic 3 — Review actions**
-- `POST /api/nominations/{id}/approve` — `{ "coordinatorEmail": "..." }`
-- `POST /api/nominations/{id}/reject` — `{ "coordinatorEmail": "...", "reason": "..." }`
-- `POST /api/nominations/{id}/request-resubmission` — same shape as reject
-- All three only work on a `PENDING_REVIEW` nomination — acting on one
-  already decided returns `409 Conflict`.
-- Each action writes an audit log entry and fires a comms stub.
+## Running it
 
-**Audit and activity history**
-- `GET /api/nominations/{id}/audit-log` — one entry per coordinator
-  decision (who, what, why, when), immutable once written.
+Needs a JDK (17+) and Maven. Nothing else — no Node, no database to install,
+no API key required.
 
-**Automated decline acknowledgement**
-- Rejecting a nomination logs a message to the nominator with the reason
-  included, and stamps `commsSentDate`. Approval and resubmission-requested
-  comms are stubbed the same way in `NotificationService` — no real mail
-  server is wired up, every `sendXComms` method just logs what would be
-  sent (visible in the `mvn spring-boot:run` console).
+```bash
+mvn spring-boot:run
+```
 
-**Epic 2 — AI Tagging**
-- Runs automatically on every submission, right after it's saved.
-- **Deterministic checks** (`DeterministicFlagChecker`) — repeat nomination
-  in the previous quarter, reciprocal nomination between the same pair.
-  Plain SQL queries, no AI involved, can't fail.
-- **AI-judged checks** — routine-task language and weak justification, plus
-  a 0-100 score and a rationale for the coordinator. Two implementations,
-  swapped via the `ai.evaluator` property:
-  - `mock` (default, zero setup) — keyword heuristics, no network call.
-  - `groq` — real call to Groq's free-tier API. See "Using the real Groq
-    evaluator" below to turn this on.
-- **Fallback handling**: if the evaluator is unavailable (no key) or the
-  call fails, the nomination still reaches the coordinator with whatever
-  deterministic flags apply and an `aiEvaluationStatus` of
-  `SKIPPED_NO_API_KEY` or `FAILED` — submission is never blocked.
-- Prompt is versioned: `prompts/nomination-evaluation-v1.txt`, with the
-  version string persisted on every evaluated nomination (`aiPromptVersion`).
-- See `docs/ai-bias-fairness-oversight.md` for what the AI is and isn't
-  allowed to influence, and known limitations (notably: no employment-status
-  check yet — see that doc for why).
+Then open **http://localhost:8080**.
 
-**Reviewer dashboard**
-- `src/main/resources/static/reviewer-dashboard.html` — a real page.
-  Filter by practice/location/status, see AI flags and score/rationale (or
-  an "AI review unavailable" note if the evaluation was skipped/failed),
-  approve/reject/request resubmission inline, expand a per-nomination
-  activity history.
-- Responsive down to mobile; built with keyboard/screen-reader access from
-  the start — semantic landmarks, visible focus states,
-  `prefers-reduced-motion` respected, status shown with text + color (never
-  color alone).
-- No login yet — actions prompt once for "your" email and remember it in
-  the browser, as a stand-in for real coordinator auth.
+The H2 console is at `http://localhost:8080/h2-console` — JDBC URL
+`jdbc:h2:file:./data/recognitiondb;AUTO_SERVER=TRUE`, user `sa`, no password.
+
+The database file lives in `data/` and is gitignored. Delete it and restart to
+rebuild from migrations, seed data included.
+
+### Demo data
+
+A fresh start comes with 13 nominations across two quarters, covering every
+status, all six core values, the five categories, and each AI evaluation
+outcome. This is deliberate: an empty dashboard looks identical to a broken
+one, and the first ten minutes of every handover was being spent working out
+which it was.
+
+Four profiles are available from the switcher in the bottom-left corner:
+
+| Profile | Role | State |
+|---|---|---|
+| Sarah Murphy | Employee | Has not nominated this quarter — use this to test the form |
+| Calvin Ho | Employee | Already nominated (pending) |
+| Jamie Doyle | Employee | Nomination was sent back for more detail |
+| Colette Lynch | Admin / HR | Coordinator — review queue, dashboard, activity log |
+
+The switcher changes **which screens and actions you see**, not what you are
+allowed to do. There is no authentication yet; every screen that depends on
+the distinction says so on the screen.
+
+---
+
+## What's built
+
+### Submission
+
+- Guided form: WHAT, HOW, nominee, practice, location.
+- **Business category** — one of five, required. Picking one shows the kind of
+  evidence it expects, which is most of why it exists.
+- **Core value** — one of Version 1's six, required, sitting directly above the
+  HOW box so that box asks a specific question ("how did they show Personal
+  Commitment?") rather than a generic one.
+- Nominator identity is fixed from the signed-in profile and cannot be edited,
+  so a nomination cannot be filed under someone else's name.
+- Self-nomination blocked outright (`400`).
+- **One nomination per person, per quarter.** A second attempt returns `409`.
+  A resubmission is exempt — it continues the existing entry rather than
+  starting a new one.
+
+### Tagging
+
+Six independent checks, each answering one yes/no question and returning the
+reason it fired. `TaggingService` collects every `NominationCheck` bean Spring
+finds, so adding a seventh rule means adding one class and editing nothing
+else.
+
+| Check | Catches |
+|---|---|
+| `SelfNominationCheck` | Nominator and nominee are the same person |
+| `ReciprocalNominationCheck` | The two have nominated each other |
+| `RepeatNominationCheck` | Same nominee also nominated last quarter |
+| `WeakJustificationCheck` | Thin on 2 of 3 signals: short, no figures, HOW doesn't connect to the value chosen |
+| `RoutineLanguageCheck` | Describes routine duties or generic praise |
+| `EmployeeStatusCheck` | **Placeholder — always passes.** Needs an HR feed that doesn't exist yet |
+
+None of these use AI. They are string matching, email comparison and date
+arithmetic — cheap, deterministic, and still working when the model is
+unavailable. `WeakJustificationCheck` and `RoutineLanguageCheck` are the two
+that could reasonably be swapped for a model-backed version later; because they
+sit behind `NominationCheck`, that swap touches one file each.
+
+Flags carry a **reason** and a **source** (`RULE` or `AI`). Reciprocal and
+repeat depend on the other rows on record, so a submission retags everything —
+otherwise B nominating A back would flag only B's record and leave A's clean.
+Retagging replaces rule flags and preserves AI ones, which cannot be
+regenerated.
+
+### AI evaluation
+
+Scores how *reviewable* a nomination is out of 100, with a rationale written
+for the coordinator. Advisory only — it never approves or rejects anything, and
+it is not shown to employees at all.
+
+The prompt lives in
+[`src/main/resources/prompts/nomination-evaluation-v1.txt`](src/main/resources/prompts/nomination-evaluation-v1.txt)
+and is **re-read on every evaluation**. Edit it, submit a nomination, see the
+change — no rebuild, no restart. Controlled by `ai.prompt.file`; if that path
+isn't readable the packaged copy on the classpath is used instead, so a real
+deployment works untouched.
+
+### Review
+
+- Queue with clickable status tiles and a live progress bar.
+- Full nomination, AI assessment and flags with their reasons.
+- Approve, reject, or request resubmission. Reject and resubmission require a
+  reason; all three accept an optional internal note.
+- A nomination can only be decided once (`409` on a second attempt).
+- Filters by category, practice and location.
+
+### Communications and logging
+
+Every decision records who did it, when, the reason, the internal note, and
+**the full text of every message it generated**. Approving produces two: a
+confirmation to the nominator and the award itself to the nominee, with the
+nomination quoted in full.
+
+Messages are stored verbatim rather than re-rendered on demand — templates get
+reworded, and a record that changes to match today's wording is not a record.
+
+**Nothing is delivered.** No mail server is configured. Every screen showing a
+message says so.
+
+### Coordinator views
+
+- **Review Queue** — decisions, with progress.
+- **AI Review** — every assessment weakest-first, triage bands, and which
+  nominations could *not* be scored.
+- **Quarters** — participation per quarter, who nominated whom.
+- **Activity Log** — every recorded action newest-first, with the messages.
+
+### Interface
+
+Light / dark / auto, plus an independent greyscale mode — useful as an
+accessibility check, since anything relying on colour alone stops working and
+becomes obvious.
+
+---
+
+## Core values
+
+Version 1's six, confirmed from published sources:
+
+Honesty & Integrity · Personal Commitment · No Ego · Customer First ·
+Excellence · Drive
+
+An earlier prototype carried an invented set (Customer Success, Innovation,
+Collaboration, Community); only Excellence overlapped. **Worth confirming the
+wording against the internal DNA booklet before this goes live** — the names
+here come from public sources, not an official internal document.
+
+---
 
 ## Using the real Groq evaluator
 
-**Clone and run — no setup required.** `ai.evaluator=auto` means the app
-uses Groq when a key is available and falls back to the built-in mock
-evaluator when it isn't. Either way nominations get a score, a rationale
-and flags, so a fresh clone is fully demonstrable straight away. The
-startup log says which one is live:
+`ai.evaluator=auto` uses Groq when a key is available and a built-in mock
+evaluator when it isn't, so a fresh clone runs end to end with no setup and
+still produces scores, rationales and flags. The startup log says which:
 
 ```
 AI evaluator: mock (rule-of-thumb, no network) - no GROQ_API_KEY set [ai.evaluator=auto]
 AI evaluator: Groq (live model) [ai.evaluator=auto]
 ```
 
-To use real AI judgment, set a key. Groq was picked over the paid
-providers because it has a genuinely free, no-credit-card developer tier.
+For real evaluation, set a key. Groq was chosen for its genuinely free,
+no-credit-card tier.
 
-1. Get a key at console.groq.com (free, no card required).
-2. Set it as an environment variable — **never put it in a properties file
-   or commit it anywhere.** This repository is public; a key committed here
-   is public the moment it is pushed, and stays in the history afterwards.
+1. Get one at console.groq.com.
+2. Set it as an environment variable — **never in a properties file.** This
+   repository is public; a key committed here is public the moment it is
+   pushed, and stays in the history afterwards.
    ```bash
    export GROQ_API_KEY=gsk_...          # Mac/Linux
    $env:GROQ_API_KEY = "gsk_..."        # Windows PowerShell
    ```
-   `application.properties` reads it via `groq.api.key=${GROQ_API_KEY:}` —
-   the trailing colon defaults it to empty rather than failing startup.
-3. Restart. New submissions now call Groq (model defaults to
-   `openai/gpt-oss-20b`; override with `groq.api.model`, e.g.
-   `openai/gpt-oss-120b`, for more reasoning depth at the cost of speed).
+   `application.properties` reads it via `groq.api.key=${GROQ_API_KEY:}` — the
+   trailing colon defaults it to empty rather than failing startup.
+3. Restart.
 
-Force one or the other with `ai.evaluator=groq` or `ai.evaluator=mock`.
-If a Groq call fails, nominations still submit normally — see Epic 2 above.
+Force either side with `ai.evaluator=groq` or `ai.evaluator=mock`. Model
+defaults to `openai/gpt-oss-20b`; override with `groq.api.model`.
 
-## What's NOT built yet, in build order
+> `gpt-oss` is a reasoning model that spends completion tokens thinking before
+> it answers. `max_tokens` is 1500 with `reasoning_effort=low` — at 300 it used
+> 298 on reasoning and returned an empty answer, which looks like a refusal but
+> is simply running out of room.
 
-1. **Epic 4 — Reachdesk gift card**: the seam is marked with a comment in
-   `NominationService.approve()`. Stub the trigger first, swap in the real
-   API call once credentials exist.
-2. **Auth**: the dashboard's email prompt is a placeholder for real login.
-
-## Data model
-
-`Nomination`: id, nominator (name/email), nominee (name/email), practice,
-location, WHAT, HOW, status (`PENDING_REVIEW` / `APPROVED` / `REJECTED` /
-`NEEDS_RESUBMISSION`), AI flags, rejection reason, original nomination ID
-(resubmission thread), coordinator email, submitted/decision/comms-sent
-dates. `AuditLogEntry`: nomination ID, coordinator email, action, reason,
-timestamp — separate table, append-only.
+---
 
 ## Database migrations (Liquibase)
 
-Schema is managed by Liquibase, not Hibernate auto-DDL — migrations live in
-`src/main/resources/db/changelog/`. Four changesets: `001` nominations,
-`002` AI flags, `003` audit log, `004` AI score/rationale/prompt-version/
-evaluation-status columns. Each has an explicit `<rollback>` block.
+Schema is managed by Liquibase, not Hibernate auto-DDL. Migrations live in
+`src/main/resources/db/changelog/`. **Twelve changesets** as of this writing:
 
-**Deploy from scratch, one command:**
+| | |
+|---|---|
+| `001`–`003` | nominations, AI flags, audit log |
+| `004` | AI score / rationale / prompt version / evaluation status |
+| `005` | demo nominations (`context="demo"`) |
+| `006` | flag reason and source |
+| `007` | award category |
+| `008` | audit comment |
+| `009` | demo data rebalanced across quarters |
+| `010` | messages moved to their own table |
+| `011` | core value |
+
+Each has an explicit `<rollback>` block. The app runs Liquibase automatically
+on startup; the CLI commands below test migrations independently of it.
 
 ```bash
-rm -rf data/               # wipe the local H2 file to simulate "from scratch"
-mvn liquibase:update
+mvn liquibase:status                     # what's pending
+mvn liquibase:update                     # apply without starting the app
+mvn liquibase:rollback -Dliquibase.rollbackCount=1   # undo the most recent changeset
 ```
 
-Check it worked: `mvn liquibase:status` should show no pending changesets.
+**Rolling back is by count, newest first.** Check `liquibase:status` to see
+what you are actually undoing rather than assuming a number — the list above
+changes as migrations are added.
 
-**Test rollback:**
+To rebuild from scratch, delete `data/` and restart the app.
 
-```bash
-mvn liquibase:rollback -Dliquibase.rollbackCount=1   # drops the ai columns added in 004
-mvn liquibase:rollback -Dliquibase.rollbackCount=1   # drops nomination_audit_log
-mvn liquibase:rollback -Dliquibase.rollbackCount=1   # drops nomination_ai_flags
-mvn liquibase:rollback -Dliquibase.rollbackCount=1   # drops nominations
-mvn liquibase:status                                  # all four now show as pending again
-mvn liquibase:update                                  # re-apply all four - confirms the forward path still works
-```
+Seed data is tagged `context="demo"` and switched on by
+`spring.liquibase.contexts=demo` in `application.properties`. Remove that line
+for a schema-only database.
 
-**Note:** the app also runs Liquibase automatically on startup via
-`spring.liquibase.change-log` in `application.properties` — the CLI
-commands above test migrations independently of the running app.
+---
 
-## Running it locally
-
-No internet access in the environment this was written in, so it hasn't
-been dependency-resolved or compiled here — do that locally:
+## Try it from the command line
 
 ```bash
-mvn spring-boot:run
-```
-
-API on `http://localhost:8080`. Dashboard at
-`http://localhost:8080/reviewer-dashboard.html`. H2 console at
-`http://localhost:8080/h2-console` (JDBC URL
-`jdbc:h2:file:./data/recognitiondb;AUTO_SERVER=TRUE`, user `sa`, no
-password).
-
-## Try it
-
-```bash
-# Submit a nomination
+# Submit — note category and coreValue are both required
 curl -X POST http://localhost:8080/api/nominations \
   -H "Content-Type: application/json" \
   -d '{
-    "nominatorName": "Jamie Doyle",
-    "nominatorEmail": "jamie.doyle@version1.com",
+    "nominatorName": "Sarah Murphy",
+    "nominatorEmail": "sarah.murphy@version1.com",
     "nomineeName": "Alex Rivera",
     "nomineeEmail": "alex.rivera@version1.com",
     "practice": "Cloud Engineering",
     "location": "Dublin",
-    "whatText": "Led the release rollout over a tight weekend.",
-    "howText": "Demonstrated ownership by keeping the whole team calm and coordinated under pressure."
+    "category": "PERFORMANCE_AND_EFFICIENCY",
+    "coreValue": "NO_EGO",
+    "whatText": "Rebuilt the release pipeline over a weekend, cutting a five-day manual process to under four hours.",
+    "howText": "No Ego - he gave the credit to the two engineers who tested it, and owned the rollback publicly when an early version broke."
   }'
-# Save the "id" from the response for the next commands
+# Save the "id" from the response.
 
-# Approve it
 curl -X POST http://localhost:8080/api/nominations/<id>/approve \
   -H "Content-Type: application/json" \
-  -d '{ "coordinatorEmail": "coordinator@version1.com" }'
+  -d '{ "coordinatorEmail": "colette.lynch@version1.com", "comment": "Confirmed the figures with the delivery lead." }'
 
-# Or reject it instead
-curl -X POST http://localhost:8080/api/nominations/<id>/reject \
-  -H "Content-Type: application/json" \
-  -d '{ "coordinatorEmail": "coordinator@version1.com", "reason": "Needs a more specific example of impact." }'
-
-# Check the audit trail
-curl http://localhost:8080/api/nominations/<id>/audit-log
-
-# Try acting on it again - expect 409 Conflict
-curl -X POST http://localhost:8080/api/nominations/<id>/approve \
-  -H "Content-Type: application/json" \
-  -d '{ "coordinatorEmail": "coordinator@version1.com" }'
+curl http://localhost:8080/api/nominations/<id>/audit-log   # decision, note and both messages
+curl http://localhost:8080/api/activity                     # everything, newest first
+curl "http://localhost:8080/api/quarters/current?email=sarah.murphy@version1.com"
 ```
 
-Self-nomination check:
+Rules worth poking at:
 
 ```bash
-curl -X POST http://localhost:8080/api/nominations \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nominatorName": "Jamie Doyle",
-    "nominatorEmail": "jamie.doyle@version1.com",
-    "nomineeName": "Jamie Doyle",
-    "nomineeEmail": "jamie.doyle@version1.com",
-    "practice": "Cloud Engineering",
-    "location": "Dublin",
-    "whatText": "...",
-    "howText": "..."
-  }'
-# -> 400 { "error": "You can't nominate yourself." }
+# Self-nomination           -> 400 "You can't nominate yourself."
+# Second decision           -> 409 "already APPROVED and can't be reviewed again"
+# Second nomination, same quarter
+#                           -> 409 "You've already submitted your nomination for Q3 2026..."
+# Missing category or value -> 400 with the field named
 ```
+
+### Endpoints
+
+| Method | Path | |
+|---|---|---|
+| `POST` | `/api/nominations` | Submit |
+| `GET` | `/api/nominations` | List (optional `?status=`) |
+| `GET` | `/api/nominations/{id}` | One |
+| `POST` | `/api/nominations/{id}/approve` | Approve |
+| `POST` | `/api/nominations/{id}/reject` | Reject — reason required |
+| `POST` | `/api/nominations/{id}/request-resubmission` | Send back — reason required |
+| `GET` | `/api/nominations/{id}/audit-log` | History for one nomination |
+| `POST` | `/api/nominations/retag` | Force a rule-flag pass |
+| `GET` | `/api/activity` | All recorded actions |
+| `GET` | `/api/quarters` | Participation per quarter |
+| `GET` | `/api/quarters/current?email=` | Quarter status for a person |
+| `GET` | `/api/categories` | The five business categories |
+| `GET` | `/api/core-values` | The six core values |
+
+---
 
 ## Project layout
 
@@ -224,42 +301,51 @@ src/main/java/com/version1/recognition/
 ├── RecognitionApplication.java
 ├── common/
 │   └── GlobalExceptionHandler.java
-└── nomination/
-    ├── Nomination.java                  # JPA entity - full dashboard schema
-    ├── NominationStatus.java            # PENDING_REVIEW / APPROVED / REJECTED / NEEDS_RESUBMISSION
-    ├── AiFlag.java                      # advisory tag values
-    ├── AiEvaluationStatus.java          # COMPLETED / FAILED / SKIPPED_NO_API_KEY
-    ├── AiEvaluationResult.java          # score + rationale + flags + prompt version
-    ├── AiEvaluationException.java       # thrown by evaluators, caught by the service
-    ├── NominationEvaluator.java         # the pluggable AI contract
-    ├── GroqNominationEvaluator.java     # real implementation - needs GROQ_API_KEY
-    ├── MockNominationEvaluator.java     # default - no key needed
-    ├── DeterministicFlagChecker.java    # repeat/reciprocal checks - no AI, can't fail
-    ├── AuditAction.java                 # APPROVED / REJECTED / RESUBMISSION_REQUESTED
-    ├── AuditLogEntry.java               # audit trail entity
-    ├── AuditLogRepository.java
-    ├── NominationRequest.java           # inbound DTO, validation, resubmission link
-    ├── NominationResponse.java          # outbound DTO
-    ├── ApproveRequest.java              # DTO for approve
-    ├── ReviewDecisionRequest.java       # DTO for reject / request-resubmission
-    ├── AuditLogEntryResponse.java       # outbound DTO for history
-    ├── NominationRepository.java
-    ├── NominationService.java           # self-nomination block + review actions + evaluation
-    ├── NotificationService.java         # comms stub - logs instead of emailing
-    ├── NominationController.java
-    ├── SelfNominationException.java
-    └── InvalidReviewStateException.java # 409 when re-deciding a nomination
+└── nomination/                       # domain: entity, repositories, enums, services
+    ├── Nomination.java
+    ├── NominationService.java        # submission rules and decisions
+    ├── TaggingService.java           # runs every check
+    ├── Quarter.java                  # one definition of "which quarter", used by five features
+    ├── AwardCategory.java  CoreValue.java
+    ├── AuditLogEntry.java  SentComm.java  NominationFlag.java
+    ├── check/                        # the six rules, one class each
+    ├── evaluation/                   # AI path: Groq, mock, and the selector between them
+    ├── comms/                        # message composition
+    └── web/                          # controllers and request/response shapes
 
 src/main/resources/
-├── application.properties
-├── db/changelog/                        # Liquibase migrations
-├── prompts/
-│   └── nomination-evaluation-v1.txt     # versioned AI evaluation prompt
-└── static/
-    ├── reviewer-dashboard.html
-    ├── reviewer-dashboard.css
-    └── reviewer-dashboard.js
-
-docs/
-└── ai-bias-fairness-oversight.md        # what the AI can/can't influence, known limitations
+├── db/changelog/                     # Liquibase migrations
+├── prompts/                          # AI prompt, hot-reloaded
+└── static/                           # index.html, app.js, app.css
 ```
+
+The front end is **plain HTML, CSS and JavaScript** — no framework, no build
+step, no npm. Hash routing, screens rendered as strings, `fetch` against the
+API. That keeps the project runnable with nothing but Maven, at the cost of
+~110KB of hand-written JS in one file. A framework becomes worth it when
+multi-step forms or live updates arrive; it doesn't change how anything looks.
+
+---
+
+## Known gaps
+
+Ordered by how much they matter.
+
+1. **No automated tests.** None. The quarter limit, the six checks, the
+   double-decision guard and the resubmission exemption are exactly the logic
+   that breaks silently.
+2. **No authentication.** The profile switcher changes the view, not access.
+   Anyone can call the API as anyone. The quarter limit is re-checked
+   server-side against whatever email arrives, so it holds for the identity
+   submitted — but that identity is unverified.
+3. **No exports.** Reachdesk / Bamboo lists, CSV by category or division, and
+   top-N per category are all still to do.
+4. **No mail delivery.** Messages are composed, stored and displayed, never
+   sent.
+5. **Email templates are hardcoded** in `NotificationService`. HR will want to
+   reword them without a developer, the way the AI prompt already works.
+6. **Reachdesk gift card** on approval — the seam is commented in
+   `NominationService.approve()`.
+7. **`EmployeeStatusCheck` always passes** — needs an HR source of truth.
+8. **No guidelines panel** on the review page, so consistency between
+   coordinators rests on habit.

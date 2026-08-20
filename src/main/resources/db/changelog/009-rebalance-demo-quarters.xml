@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <!--
+        The demo data was written before the one-nomination-per-quarter rule
+        existed, and broke it: Jamie Doyle had two separate nominations sitting in
+        Q3, which the application would now refuse to accept. Demo data that the
+        live rules would reject is worse than no demo data - it teaches whoever
+        picks this up next the wrong thing about how the system behaves.
+
+        Rather than edit changeset 005 (already applied everywhere, so its
+        checksum must not move), this corrects the data forward.
+
+        Two things happen here:
+
+        1. Three nominations move back to Q2 2026. That fixes Jamie's clash - his
+           two entries are now one per quarter, which is legal - and gives the
+           Quarters screen a second quarter to show instead of a single row.
+
+        2. One new Q3 nomination for Michael Chen, who was already nominated in
+           Q2. That is deliberate: it is the only way the repeat-nomination check
+           has anything to catch, and an unexercised rule looks identical to a
+           broken one.
+    -->
+    <changeSet id="009-rebalance-demo-quarters" author="team" context="demo">
+
+        <!-- Jamie's second Q3 entry moves to Q2, resolving the clash. -->
+        <update tableName="nominations">
+            <column name="submitted_at" valueDate="2026-05-14T16:05:00"/>
+            <column name="decision_date" valueDate="2026-05-19T11:20:00"/>
+            <column name="comms_sent_date" valueDate="2026-05-19T11:20:00"/>
+            <where>id = 'a1000011-0000-4000-8000-000000000011'</where>
+        </update>
+
+        <!-- Michael Chen's award, moved to Q2 so his Q3 nomination reads as a repeat. -->
+        <update tableName="nominations">
+            <column name="submitted_at" valueDate="2026-04-22T13:27:00"/>
+            <column name="decision_date" valueDate="2026-04-27T09:15:00"/>
+            <column name="comms_sent_date" valueDate="2026-04-27T09:15:00"/>
+            <where>id = 'a1000010-0000-4000-8000-000000000010'</where>
+        </update>
+
+        <!-- Grace's, likewise - spreads the second quarter across more than one row. -->
+        <update tableName="nominations">
+            <column name="submitted_at" valueDate="2026-06-03T14:18:00"/>
+            <column name="decision_date" valueDate="2026-06-08T10:05:00"/>
+            <column name="comms_sent_date" valueDate="2026-06-08T10:05:00"/>
+            <where>id = 'a1000012-0000-4000-8000-000000000012'</where>
+        </update>
+
+        <!-- Nominated by someone with no other entry this quarter, so this row is
+             itself legal; it exists to give the repeat-quarter check a target. -->
+        <insert tableName="nominations">
+            <column name="id" value="a1000013-0000-4000-8000-000000000013"/>
+            <column name="nominator_name" value="Niamh O'Connor"/>
+            <column name="nominator_email" value="niamh.oconnor@version1.com"/>
+            <column name="nominee_name" value="Michael Chen"/>
+            <column name="nominee_email" value="michael.chen@version1.com"/>
+            <column name="practice" value="Managed Services"/>
+            <column name="location" value="Pune"/>
+            <column name="category" value="PERFORMANCE_AND_EFFICIENCY"/>
+            <column name="what_text" value="Extended the reporting automation he built last quarter to cover the two remaining regions, taking another 14 hours a month out of the close and removing the last spreadsheet from the process."/>
+            <column name="how_text" value="Excellence. Michael went back to finish a job most people would have called done, and made sure the two analysts he trained previously led the rollout themselves rather than doing it for them."/>
+            <column name="status" value="PENDING_REVIEW"/>
+            <column name="submitted_at" valueDate="2026-08-18T09:40:00"/>
+            <column name="ai_score" valueNumeric="84"/>
+            <column name="ai_rationale" value="Quantified follow-through with a clear handover element. Reads as a genuine second contribution rather than a restatement of the first, though a coordinator should confirm it is distinct enough from the Q2 award to stand on its own."/>
+            <column name="ai_prompt_version" value="v1"/>
+            <column name="ai_evaluation_status" value="COMPLETED"/>
+        </insert>
+
+        <rollback>
+            <delete tableName="nomination_ai_flags">
+                <where>nomination_id = 'a1000013-0000-4000-8000-000000000013'</where>
+            </delete>
+            <delete tableName="nominations">
+                <where>id = 'a1000013-0000-4000-8000-000000000013'</where>
+            </delete>
+            <update tableName="nominations">
+                <column name="submitted_at" valueDate="2026-08-09T16:05:00"/>
+                <where>id = 'a1000011-0000-4000-8000-000000000011'</where>
+            </update>
+            <update tableName="nominations">
+                <column name="submitted_at" valueDate="2026-08-06T13:27:00"/>
+                <where>id = 'a1000010-0000-4000-8000-000000000010'</where>
+            </update>
+            <update tableName="nominations">
+                <column name="submitted_at" valueDate="2026-08-10T14:18:00"/>
+                <where>id = 'a1000012-0000-4000-8000-000000000012'</where>
+            </update>
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>

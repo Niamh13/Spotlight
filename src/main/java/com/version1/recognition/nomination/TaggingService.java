@@ -1,6 +1,7 @@
 package com.version1.recognition.nomination;
 
 import com.version1.recognition.nomination.check.NominationCheck;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -84,8 +85,12 @@ public class TaggingService {
 
             List<NominationFlag> ruleFlags = tag(nomination, all);
 
+            // Same overlap on the way back in: keep the AI's flag only where no
+            // rule raised it this time round.
             List<NominationFlag> merged = new ArrayList<>(ruleFlags);
-            merged.addAll(preservedAiFlags);
+            preservedAiFlags.stream()
+                    .filter(ai -> ruleFlags.stream().noneMatch(r -> r.getFlag() == ai.getFlag()))
+                    .forEach(merged::add);
             nomination.setAiFlags(merged);
 
             if (!ruleFlags.isEmpty()) {

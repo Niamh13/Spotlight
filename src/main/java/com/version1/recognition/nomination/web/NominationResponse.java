@@ -1,4 +1,10 @@
-package com.version1.recognition.nomination;
+package com.version1.recognition.nomination.web;
+
+import com.version1.recognition.nomination.AwardCategory;
+import com.version1.recognition.nomination.CoreValue;
+import com.version1.recognition.nomination.Nomination;
+import com.version1.recognition.nomination.NominationStatus;
+import com.version1.recognition.nomination.evaluation.AiEvaluationStatus;
 
 import java.time.Instant;
 import java.util.List;
@@ -16,6 +22,10 @@ public class NominationResponse {
     private final String nomineeEmail;
     private final String practice;
     private final String location;
+    private final AwardCategory category;
+    private final String categoryLabel;
+    private final CoreValue coreValue;
+    private final String coreValueLabel;
     private final String whatText;
     private final String howText;
     private final NominationStatus status;
@@ -38,6 +48,10 @@ public class NominationResponse {
         this.nomineeEmail = nomination.getNomineeEmail();
         this.practice = nomination.getPractice();
         this.location = nomination.getLocation();
+        this.category = nomination.getCategory();
+        this.categoryLabel = nomination.getCategory() == null ? null : nomination.getCategory().getLabel();
+        this.coreValue = nomination.getCoreValue();
+        this.coreValueLabel = nomination.getCoreValue() == null ? null : nomination.getCoreValue().getLabel();
         this.whatText = nomination.getWhatText();
         this.howText = nomination.getHowText();
         this.status = nomination.getStatus();
@@ -81,6 +95,22 @@ public class NominationResponse {
 
     public String getLocation() {
         return location;
+    }
+
+    public AwardCategory getCategory() {
+        return category;
+    }
+
+    public String getCategoryLabel() {
+        return categoryLabel;
+    }
+
+    public CoreValue getCoreValue() {
+        return coreValue;
+    }
+
+    public String getCoreValueLabel() {
+        return coreValueLabel;
     }
 
     public String getWhatText() {

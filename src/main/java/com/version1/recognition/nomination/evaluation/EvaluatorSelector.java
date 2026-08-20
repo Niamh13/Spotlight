@@ -1,4 +1,6 @@
-package com.version1.recognition.nomination;
+package com.version1.recognition.nomination.evaluation;
+
+import com.version1.recognition.nomination.Nomination;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,7 +96,8 @@ public class EvaluatorSelector implements NominationEvaluator {
                 : "mock (rule-of-thumb, no network) - no GROQ_API_KEY set";
     }
 
-    void logSelection() {
+    /** Logs which evaluator is in play. Called once at startup. */
+    public void logSelection() {
         log.info("AI evaluator: {} [ai.evaluator={}]", describeActive(), mode);
         if (active() == mock && !"mock".equals(mode)) {
             log.info("No GROQ_API_KEY found, so nominations are scored by the built-in mock "

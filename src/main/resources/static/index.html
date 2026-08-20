@@ -3,18 +3,51 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>V1 Recognition</title>
-<link rel="stylesheet" href="app.css">
+<title>Spotlight</title>
+<link rel="stylesheet" href="app.css?v=20260820e">
 </head>
 <body>
 
 <div class="app">
 
   <aside>
-    <div class="logo">
-      <div class="mark">V1</div>
-      <div class="word">RECOGNITION</div>
-    </div>
+    <!-- Spotlight mark: a burst of light from a low point, flanked by two arcs
+         reaching up around it. The arcs are the colleagues doing the
+         recognising; the light is what gets recognised. Inline SVG rather than
+         an image file so it stays sharp at any size and follows the theme. -->
+    <a class="logo" href="#/home" aria-label="Spotlight — home">
+      <span class="logo__mark" aria-hidden="true">
+        <svg viewBox="0 0 64 64" fill="none" focusable="false">
+          <defs>
+            <linearGradient id="sl-left" x1="8" y1="52" x2="26" y2="14" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#1E1B7A"/><stop offset="1" stop-color="#5B4BD6"/>
+            </linearGradient>
+            <linearGradient id="sl-right" x1="56" y1="52" x2="38" y2="14" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#0B7C74"/><stop offset="1" stop-color="#22B8A6"/>
+            </linearGradient>
+            <linearGradient id="sl-beam" x1="32" y1="8" x2="32" y2="54" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#FFC94D"/><stop offset="1" stop-color="#FFC94D" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M6 54C6 34 14 20 24 13" stroke="url(#sl-left)" stroke-width="4"
+                stroke-linecap="round"/>
+          <path d="M15 54C15 38 21 27 29 21" stroke="url(#sl-left)" stroke-width="3"
+                stroke-linecap="round" opacity="0.75"/>
+          <path d="M58 54C58 34 50 20 40 13" stroke="url(#sl-right)" stroke-width="4"
+                stroke-linecap="round"/>
+          <path d="M49 54C49 38 43 27 35 21" stroke="url(#sl-right)" stroke-width="3"
+                stroke-linecap="round" opacity="0.75"/>
+          <circle cx="24" cy="13" r="3.4" fill="#5B4BD6"/>
+          <circle cx="40" cy="13" r="3.4" fill="#22B8A6"/>
+          <path d="M32 6L35.4 24.5 54 54H10L28.6 24.5z" fill="url(#sl-beam)" opacity="0.85"/>
+          <path d="M32 4l2.6 9.4L44 16l-9.4 2.6L32 28l-2.6-9.4L20 16l9.4-2.6z" fill="#FFB627"/>
+        </svg>
+      </span>
+      <span class="logo__words">
+        <span class="logo__name">Spotlight</span>
+        <span class="logo__tagline">Recognising impact</span>
+      </span>
+    </a>
 
     <nav id="nav"></nav>
 
@@ -36,6 +69,16 @@
       </div>
     </div>
 
+    <!-- Greyscale is independent of light/dark: it strips the accent hues but
+         keeps whichever background you chose. Useful for checking that nothing
+         relies on colour alone to be readable. -->
+    <div class="themebar themebar--sub">
+      <label class="greyscale">
+        <input type="checkbox" id="greyscaleToggle">
+        <span>Greyscale</span>
+      </label>
+    </div>
+
     <!-- Profile switcher. Sits in the bottom corner of the sidebar, where the
          signed-in user normally lives, so switching account is where you would
          reach for it rather than hidden in a settings screen. -->
@@ -51,6 +94,7 @@
       </button>
 
       <div class="persona-menu" id="personaMenu" role="menu" hidden></div>
+      <div class="buildstamp" title="Front-end build currently loaded">build 20260820e</div>
     </div>
   </aside>
 
@@ -61,6 +105,6 @@
      sentence before reading the account change rather than interrupting. -->
 <div class="toast-host" id="toastHost" role="status" aria-live="polite"></div>
 
-<script src="app.js"></script>
+<script src="app.js?v=20260820e"></script>
 </body>
 </html>
