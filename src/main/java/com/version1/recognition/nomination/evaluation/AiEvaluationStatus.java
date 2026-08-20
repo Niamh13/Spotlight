@@ -1,4 +1,4 @@
-package com.version1.recognition.nomination;
+package com.version1.recognition.nomination.evaluation;
 
 public enum AiEvaluationStatus {
     COMPLETED,

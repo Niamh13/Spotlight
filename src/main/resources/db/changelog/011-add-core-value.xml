@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <!--
+        Which of Version 1's six core values a nomination claims to demonstrate.
+
+        Until now the value lived only inside the free-text HOW, which meant it
+        could not be reported on, could not be filtered, and was frequently just
+        absent - a nominator writing "she was brilliant" has named no value at
+        all. Making it a field forces the question and gives the HOW something
+        specific to answer.
+
+        Nullable, for the same reason category is: rows written before the picker
+        existed have no answer, and guessing one would put invented data into the
+        reporting this column exists to support.
+    -->
+    <changeSet id="011-add-core-value" author="team">
+        <addColumn tableName="nominations">
+            <column name="core_value" type="VARCHAR(50)"/>
+        </addColumn>
+        <rollback>
+            <dropColumn tableName="nominations" columnName="core_value"/>
+        </rollback>
+    </changeSet>
+
+    <!--
+        Set the value on the demo rows, matched to what each HOW actually argues
+        rather than spread evenly. Several of them name one of the old
+        placeholder values in their text; the mapping picks the real value
+        closest to the behaviour being described.
+    -->
+    <changeSet id="011-set-seed-core-values" author="team" context="demo">
+        <update tableName="nominations">
+            <column name="core_value" value="DRIVE"/>
+            <where>id = 'a1000001-0000-4000-8000-000000000001'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="core_value" value="EXCELLENCE"/>
+            <where>id = 'a1000002-0000-4000-8000-000000000002'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="core_value" value="PERSONAL_COMMITMENT"/>
+            <where>id = 'a1000003-0000-4000-8000-000000000003'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="core_value" value="PERSONAL_COMMITMENT"/>
+            <where>id = 'a1000004-0000-4000-8000-000000000004'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="core_value" value="HONESTY_AND_INTEGRITY"/>
+            <where>id = 'a1000005-0000-4000-8000-000000000005'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="core_value" value="NO_EGO"/>
+            <where>id = 'a1000006-0000-4000-8000-000000000006'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="core_value" value="CUSTOMER_FIRST"/>
+            <where>id = 'a1000007-0000-4000-8000-000000000007'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="core_value" value="NO_EGO"/>
+            <where>id = 'a1000008-0000-4000-8000-000000000008'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="core_value" value="PERSONAL_COMMITMENT"/>
+            <where>id = 'a1000009-0000-4000-8000-000000000009'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="core_value" value="DRIVE"/>
+            <where>id = 'a1000010-0000-4000-8000-000000000010'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="core_value" value="PERSONAL_COMMITMENT"/>
+            <where>id = 'a1000011-0000-4000-8000-000000000011'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="core_value" value="EXCELLENCE"/>
+            <where>id = 'a1000012-0000-4000-8000-000000000012'</where>
+        </update>
+        <update tableName="nominations">
+            <column name="core_value" value="EXCELLENCE"/>
+            <where>id = 'a1000013-0000-4000-8000-000000000013'</where>
+        </update>
+
+        <rollback>
+            <update tableName="nominations">
+                <column name="core_value" value="null"/>
+                <where>id LIKE 'a10000%'</where>
+            </update>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,5 +1,15 @@
 package com.version1.recognition.nomination;
 
+import com.version1.recognition.nomination.comms.NotificationService;
+import com.version1.recognition.nomination.comms.SentEmail;
+import com.version1.recognition.nomination.evaluation.AiEvaluationException;
+import com.version1.recognition.nomination.evaluation.AiEvaluationResult;
+import com.version1.recognition.nomination.evaluation.AiEvaluationStatus;
+import com.version1.recognition.nomination.evaluation.NominationEvaluator;
+import com.version1.recognition.nomination.web.ApproveRequest;
+import com.version1.recognition.nomination.web.NominationRequest;
+import com.version1.recognition.nomination.web.ReviewDecisionRequest;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -48,6 +58,8 @@ public class NominationService {
             throw new SelfNominationException("You can't nominate yourself.");
         }
 
+        requireNoNominationThisQuarter(request);
+
         Nomination nomination = new Nomination(
                 request.getNominatorName(),
                 request.getNominatorEmail(),
@@ -55,6 +67,8 @@ public class NominationService {
                 request.getNomineeEmail(),
                 request.getPractice(),
                 request.getLocation(),
+                request.getCategory(),
+                request.getCoreValue(),
                 request.getWhatText(),
                 request.getHowText(),
                 request.getOriginalNominationId()
@@ -87,9 +101,18 @@ public class NominationService {
 
         try {
             AiEvaluationResult result = evaluator.evaluate(nomination);
-            result.getFlags().forEach(flag -> flags.add(new NominationFlag(
-                    flag, FlagSource.AI,
-                    "Raised by the AI language evaluator (prompt " + result.getPromptVersion() + ").")));
+
+            // The rules and the model overlap - both can raise WEAK_JUSTIFICATION
+            // for the same nomination - and showing a coordinator the same flag
+            // twice reads as two separate problems. Where they agree, keep the
+            // rule's version: it says exactly what tripped ("under 150
+            // characters, no figures") rather than just asserting it.
+            result.getFlags().stream()
+                    .filter(flag -> flags.stream().noneMatch(existing -> existing.getFlag() == flag))
+                    .forEach(flag -> flags.add(new NominationFlag(
+                            flag, FlagSource.AI,
+                            "Also raised by the AI language evaluator (prompt "
+                                    + result.getPromptVersion() + ").")));
             nomination.setAiFlags(flags);
             nomination.setAiScore(result.getScore());
             nomination.setAiRationale(result.getRationale());
@@ -118,9 +141,20 @@ public class NominationService {
         nomination.setDecisionDate(java.time.Instant.now());
         repository.save(nomination);
 
-        auditLogRepository.save(new AuditLogEntry(id, request.getCoordinatorEmail(), AuditAction.APPROVED, null));
+        AuditLogEntry entry = new AuditLogEntry(id, request.getCoordinatorEmail(),
+                AuditAction.APPROVED, null, request.getComment());
+        // Two messages on approval: the nominator gets a confirmation, and the
+        // nominee gets the award itself with the nomination quoted in full.
+        SentEmail toNominator = notificationService.sendApprovalComms(nomination, request.getComment());
+        entry.recordComm(new SentComm(toNominator.getRecipient(), SentComm.Recipient.NOMINATOR,
+                toNominator.getSubject(), toNominator.getBody()));
 
-        notificationService.sendApprovalComms(nomination);
+        SentEmail toNominee = notificationService.sendNomineeAwardComms(nomination);
+        entry.recordComm(new SentComm(toNominee.getRecipient(), SentComm.Recipient.NOMINEE,
+                toNominee.getSubject(), toNominee.getBody()));
+
+        auditLogRepository.save(entry);
+
         nomination.setCommsSentDate(java.time.Instant.now());
         return repository.save(nomination);
 
@@ -137,9 +171,15 @@ public class NominationService {
         nomination.setDecisionDate(java.time.Instant.now());
         repository.save(nomination);
 
-        auditLogRepository.save(new AuditLogEntry(id, request.getCoordinatorEmail(), AuditAction.REJECTED, request.getReason()));
+        AuditLogEntry entry = new AuditLogEntry(id, request.getCoordinatorEmail(),
+                AuditAction.REJECTED, request.getReason(), request.getComment());
+        // Only the nominator hears about this one - telling a nominee their
+        // nomination was turned down helps nobody.
+        SentEmail email = notificationService.sendDeclineComms(nomination, request.getComment());
+        entry.recordComm(new SentComm(email.getRecipient(), SentComm.Recipient.NOMINATOR,
+                email.getSubject(), email.getBody()));
+        auditLogRepository.save(entry);
 
-        notificationService.sendDeclineComms(nomination);
         nomination.setCommsSentDate(java.time.Instant.now());
         return repository.save(nomination);
     }
@@ -153,9 +193,15 @@ public class NominationService {
         nomination.setDecisionDate(java.time.Instant.now());
         repository.save(nomination);
 
-        auditLogRepository.save(new AuditLogEntry(id, request.getCoordinatorEmail(), AuditAction.RESUBMISSION_REQUESTED, request.getReason()));
+        AuditLogEntry entry = new AuditLogEntry(id, request.getCoordinatorEmail(),
+                AuditAction.RESUBMISSION_REQUESTED, request.getReason(), request.getComment());
+        // Only the nominator hears about this one - telling a nominee their
+        // nomination was turned down helps nobody.
+        SentEmail email = notificationService.sendResubmissionRequestedComms(nomination, request.getComment());
+        entry.recordComm(new SentComm(email.getRecipient(), SentComm.Recipient.NOMINATOR,
+                email.getSubject(), email.getBody()));
+        auditLogRepository.save(entry);
 
-        notificationService.sendResubmissionRequestedComms(nomination);
         nomination.setCommsSentDate(java.time.Instant.now());
         return repository.save(nomination);
     }
@@ -178,6 +224,59 @@ public class NominationService {
         return repository.findAll().stream()
                 .filter(n -> n.getStatus() == statusFilter)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * One nomination per person per quarter.
+     * <p>
+     * This supersedes the earlier "no duplicate while pending" rule, which only
+     * stopped the same nominator/nominee pair repeating. The scheme is a vote:
+     * everyone gets one, so the limit is on the nominator regardless of who they
+     * nominate, and regardless of how the first one turned out. A rejected
+     * nomination still spent that quarter's slot.
+     * <p>
+     * Resubmissions are exempt. A coordinator asked for those, and they continue
+     * the original entry rather than starting a second one - without this
+     * exemption, asking someone for more detail would lock them out of answering.
+     */
+    private void requireNoNominationThisQuarter(NominationRequest request) {
+        if (request.getOriginalNominationId() != null) {
+            return;
+        }
+
+        Quarter quarter = Quarter.current();
+
+        Nomination existing = repository.findAll().stream()
+                .filter(n -> n.getOriginalNominationId() == null)
+                .filter(n -> equalsIgnoreCase(n.getNominatorEmail(), request.getNominatorEmail()))
+                .filter(n -> quarter.contains(n.getSubmittedAt()))
+                .findFirst()
+                .orElse(null);
+
+        if (existing != null) {
+            throw new QuarterLimitReachedException(
+                    "You've already submitted your nomination for " + quarter.label() + " - "
+                            + existing.getNomineeName() + ", currently "
+                            + existing.getStatus().name().toLowerCase().replace('_', ' ')
+                            + ". Everyone gets one nomination per quarter. You'll be able to submit "
+                            + "again from " + quarter.next().label() + ".",
+                    quarter.label());
+        }
+    }
+
+    /** The nomination this person has already made in the current quarter, if any. */
+    public Nomination findCurrentQuarterNomination(String nominatorEmail) {
+        Quarter quarter = Quarter.current();
+        return repository.findAll().stream()
+                .filter(n -> n.getOriginalNominationId() == null)
+                .filter(n -> equalsIgnoreCase(n.getNominatorEmail(), nominatorEmail))
+                .filter(n -> quarter.contains(n.getSubmittedAt()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean equalsIgnoreCase(String a, String b) {
+        return a != null && b != null && a.trim().equalsIgnoreCase(b.trim());
     }
 
     private Nomination requirePendingReview(UUID id) {

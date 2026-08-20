@@ -1,5 +1,5 @@
 /* =====================================================================
-   V1 Recognition — single-page front end for the Star Award platform.
+   Spotlight — single-page front end for the Star Award platform.
 
    Two things to know before reading:
 
@@ -18,6 +18,11 @@
   "use strict";
 
   var API = "/api/nominations";
+  var CATEGORY_API = "/api/categories";
+  var CORE_VALUE_API = "/api/core-values";
+  var QUARTER_API = "/api/quarters";
+  var QUARTER_SEEN_KEY = "v1r.lastQuarter";
+  var ACTIVITY_API = "/api/activity";
   var STORE_KEY = "v1r.persona";
 
   /* -------------------------------------------------------------------
@@ -31,6 +36,13 @@
       role: "EMPLOYEE", title: "Consultant · Data & AI" },
     { id: "jamie", name: "Jamie Doyle", email: "jamie.doyle@version1.com",
       role: "EMPLOYEE", title: "Engineer · Cloud Engineering" },
+    // Deliberately has no nomination of her own this quarter, so the submission
+    // flow is testable: the other three have all used their slot, and with only
+    // them you can never see the form itself, just the "already nominated"
+    // panel. She is a nominee in the seed data, so her My Recognition screen
+    // also shows the receiving side rather than being empty.
+    { id: "sarah", name: "Sarah Murphy", email: "sarah.murphy@version1.com",
+      role: "EMPLOYEE", title: "Lead Consultant · Data & AI" },
     { id: "colette", name: "Colette Lynch", email: "colette.lynch@version1.com",
       role: "COORDINATOR", title: "HR · Recognition coordinator" }
   ];
@@ -46,13 +58,18 @@
     { id: "mtm",       label: "Moments that Matter", ic: "🎁", group: "Recognition", roles: ["EMPLOYEE", "COORDINATOR"] },
     { id: "queue",     label: "Review Queue",        ic: "☑", group: "Coordinator",  roles: ["COORDINATOR"], badge: "pending" },
     { id: "ai",        label: "AI Review",           ic: "◎", group: "Coordinator",  roles: ["COORDINATOR"] },
+    { id: "quarters",  label: "Quarters",            ic: "◷", group: "Coordinator",  roles: ["COORDINATOR"] },
+    { id: "activity",  label: "Activity Log",        ic: "≡", group: "Coordinator",  roles: ["COORDINATOR"] },
     { id: "dashboard", label: "Dashboard",           ic: "▦", group: "Coordinator",  roles: ["COORDINATOR"] },
     { id: "reports",   label: "Reports",             ic: "▤", group: "Coordinator",  roles: ["COORDINATOR"] },
     { id: "help",      label: "Help & Guidelines",   ic: "?", group: "Recognition",  roles: ["EMPLOYEE", "COORDINATOR"] }
   ];
 
-  var VALUES = ["Customer Success", "Innovation", "Collaboration",
-                "Integrity", "Excellence", "Community"];
+  // Version 1's actual six. The earlier prototype carried a made-up set
+  // (Customer Success, Innovation, Collaboration, Community); these are the real
+  // ones and match what the submission form offers.
+  var VALUES = ["Honesty & Integrity", "Personal Commitment", "No Ego",
+                "Customer First", "Excellence", "Drive"];
 
   var STATUS = {
     PENDING_REVIEW:     { cls: "pending",  g: "◔", label: "Pending review" },
@@ -74,7 +91,8 @@
   };
 
   var FIELDS = ["nominatorName", "nominatorEmail", "nomineeName", "nomineeEmail",
-                "practice", "location", "whatText", "howText", "originalNominationId"];
+                "practice", "location", "category", "coreValue", "whatText", "howText",
+                "originalNominationId"];
 
   var AV_COLORS = ["#6C4BD8", "#0F9E8E", "#C2410C", "#2a78d6", "#B0448F", "#0f766e"];
 
@@ -209,6 +227,10 @@
     var p = persona();
     closePersonaMenu();
 
+    // The quarter answer ("have you used your nomination?") is per person, so
+    // it has to be re-fetched before the new profile's screens are drawn.
+    loadQuarter().then(function () { render(); });
+
     // Switching role can strip the screen you are standing on out of the nav
     // (an employee has no Review Queue). Land on Home rather than leave the
     // main pane showing a view this account isn't supposed to have.
@@ -292,6 +314,7 @@
      ============================================== */
 
   var THEME_KEY = "v1r.theme";
+  var GREY_KEY = "v1r.greyscale";
 
   function loadTheme() {
     var saved = null;
@@ -319,6 +342,43 @@
         ? "Following your operating system's light or dark setting."
         : "Pinned to " + names[choice].toLowerCase() + " on this browser." });
     }
+  }
+
+  /* Greyscale strips the accent hues while keeping the chosen light/dark
+     background. It is a genuine accessibility check as much as a preference:
+     with the colour gone, anything that was relying on hue alone to carry
+     meaning stops working, and you can see it immediately. Every status here
+     also carries a glyph and a word, so it should all still read. */
+  function loadGreyscale() {
+    var on = false;
+    try { on = window.localStorage.getItem(GREY_KEY) === "1"; } catch (e) { /* private mode */ }
+    applyGreyscale(on, false);
+  }
+
+  function applyGreyscale(on, announce) {
+    if (on) {
+      document.documentElement.setAttribute("data-palette", "grey");
+    } else {
+      document.documentElement.removeAttribute("data-palette");
+    }
+    try { window.localStorage.setItem(GREY_KEY, on ? "1" : "0"); } catch (e) { /* private mode */ }
+
+    var box = $("#greyscaleToggle");
+    if (box) box.checked = on;
+
+    if (announce) {
+      toast({
+        title: on ? "Greyscale on" : "Greyscale off",
+        msg: on
+          ? "Accent colours removed. Status and category still read through their labels and glyphs."
+          : "Accent colours restored."
+      });
+    }
+  }
+
+  function wireGreyscale() {
+    var box = $("#greyscaleToggle");
+    if (box) box.addEventListener("change", function () { applyGreyscale(box.checked, true); });
   }
 
   function wireTheme() {
@@ -362,8 +422,85 @@
 
   /* ================= data ================= */
 
-  var store = { nominations: [], error: null, loaded: false };
+  var store = { nominations: [], categories: [], coreValues: [], quarter: null, quarterHistory: [], activity: [], error: null, loaded: false };
+
+  /* Current quarter, and whether the active profile has used its nomination.
+     Reloaded whenever the profile changes, since the answer is per person. */
+  function loadQuarter() {
+    return fetch(QUARTER_API + "/current?email=" + encodeURIComponent(persona().email))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (q) { store.quarter = q; })
+      .catch(function () { store.quarter = null; });
+  }
+
+  function loadActivity() {
+    return fetch(ACTIVITY_API)
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) { store.activity = list || []; })
+      .catch(function () { store.activity = []; });
+  }
+
+  function loadQuarterHistory() {
+    return fetch(QUARTER_API)
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) { store.quarterHistory = list || []; })
+      .catch(function () { store.quarterHistory = []; });
+  }
+
+  /* Tells someone the quarter rolled over since they last had the page open,
+     which is the moment their nomination becomes available again. Compares
+     against what was stored, so it fires once rather than on every load. */
+  function announceNewQuarterIfChanged() {
+    var q = store.quarter;
+    if (!q) return;
+    var seen = null;
+    try { seen = window.localStorage.getItem(QUARTER_SEEN_KEY); } catch (e) { /* private mode */ }
+    try { window.localStorage.setItem(QUARTER_SEEN_KEY, q.code); } catch (e) { /* private mode */ }
+
+    if (seen && seen !== q.code) {
+      toast({
+        kind: "employee",
+        sticky: true,
+        title: "New quarter — " + q.label,
+        msg: "Nominations have reset. You can submit one nomination for " + q.label +
+             ", up to " + fmtDay(q.deadline) + "."
+      });
+    }
+  }
+
+  function fmtDay(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso + (iso.length === 10 ? "T00:00:00Z" : ""));
+    if (isNaN(d)) return iso;
+    return d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+  }
+
+  function loadCoreValues() {
+    return fetch(CORE_VALUE_API)
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) { store.coreValues = list || []; })
+      .catch(function () { store.coreValues = []; });
+  }
+
+  function loadCategories() {
+    return fetch(CATEGORY_API)
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) { store.categories = list || []; })
+      .catch(function () { store.categories = []; });
+  }
+
+  /** Display name for a category code, falling back for pre-category rows. */
+  function categoryLabel(n) {
+    if (n.categoryLabel) return n.categoryLabel;
+    if (!n.category) return null;
+    var found = store.categories.filter(function (c) { return c.value === n.category; })[0];
+    return found ? found.label : n.category;
+  }
   var currentFilter = null;
+  var currentCategory = "";
+  var currentPractice = "";
+  var currentLocation = "";
+  var queueFilter = null;
   var openDetailId = null;
 
   function loadNominations() {
@@ -455,27 +592,50 @@
 
   /* ---------- Submit ---------- */
   views.submit = function () {
+    var q = store.quarter;
+
+    // Already used this quarter's nomination: show what they submitted and how
+    // it is doing, rather than a form that will only be refused on submit.
+    // A nomination that was rejected or sent back is not finished business: the
+    // brief requires the nominator be able to try again, and the server already
+    // exempts resubmissions from the quarter limit. Blocking the form here would
+    // have made that impossible from the interface.
+    var openForRevision = q && q.hasSubmitted && q.submission &&
+      (q.submission.status === "REJECTED" || q.submission.status === "NEEDS_RESUBMISSION");
+
+    if (q && q.hasSubmitted && !openForRevision) {
+      return '<div class="page-head"><div class="head-row"><div>' +
+          "<h1>Submit a Star Award</h1>" +
+          "<p>One nomination per person, per quarter.</p></div>" +
+          '<div class="spacer"></div>' + quarterChip() + "</div></div>" +
+        quarterUsedPanel(q) +
+        '<div class="helper" style="margin-top:18px"><h4>Why only one?</h4>' +
+        '<p style="margin:0;font-size:12.5px;color:var(--ink-2)">The Star Award is a ' +
+        "vote: everyone gets one nomination each quarter, so no single person can " +
+        "weight the outcome by submitting several. Your nomination stands whether it " +
+        "is approved or not — a decision doesn't return the slot.</p></div>";
+    }
+
     return '<div class="page-head"><div class="head-row"><div>' +
         "<h1>Submit a Star Award</h1>" +
         "<p>Recognise outstanding contributions that go above and beyond.</p></div>" +
-        '<div class="spacer"></div>' + tagLive() + "</div></div>" +
+        '<div class="spacer"></div>' + quarterChip() + tagLive() + "</div></div>" +
+        quarterBanner() +
 
       '<div class="grid-main"><div class="card"><div class="body">' +
         '<div class="banner ok" id="okBanner"><span class="glyph">✓</span><span id="okText"></span></div>' +
         '<div class="banner bad" id="badBanner"><span class="glyph">●</span><span id="badText"></span></div>' +
-        '<div id="submitAi"></div>' +
 
         '<form id="form" novalidate autocomplete="off">' +
+          lockedNominatorFields() +
           '<div class="row2">' +
-            field("nominatorName", "Your name", "text") +
-            field("nominatorEmail", "Your email", "email") +
-          '</div><div class="row2">' +
             field("nomineeName", "Nominee name", "text") +
             field("nomineeEmail", "Nominee email", "email") +
           '</div><div class="row2">' +
             field("practice", "Practice", "text", "practices") +
             field("location", "Location", "text", "locations") +
           "</div>" +
+          categoryField() +
           '<datalist id="practices"><option value="Cloud Engineering"></option>' +
             '<option value="Data &amp; AI"></option><option value="Digital"></option>' +
             '<option value="ERP"></option><option value="Managed Services"></option>' +
@@ -486,11 +646,24 @@
             '<option value="Pune"></option></datalist>' +
 
           areaField("whatText", "WHAT — the achievement, contribution or action") +
-          areaField("howText", "HOW — how this demonstrated a core value") +
+          coreValueField() +
+          areaField("howText", "HOW — how they demonstrated that value") +
 
-          '<div class="field" data-field="originalNominationId" id="resubWrap" hidden>' +
+          (openForRevision
+            ? '<div class="notice" style="border-style:solid;border-color:' +
+              "color-mix(in srgb, var(--info) 35%, var(--border));background:" +
+              'color-mix(in srgb, var(--info) 7%, var(--surface))"><span class="glyph" ' +
+              'style="color:var(--info)">↩</span><div><b>Revising your ' +
+              esc(q.label) + ' nomination.</b> Your previous entry for ' +
+              esc(q.submission.nomineeName) + " was " +
+              esc((STATUS[q.submission.status] || {}).label || "").toLowerCase() +
+              ". This replaces it and doesn't use another nomination.</div></div>"
+            : "") +
+          '<div class="field" data-field="originalNominationId" id="resubWrap"' +
+          (openForRevision ? "" : " hidden") + ">" +
             "<label>Original nomination id (resubmission)</label>" +
-            '<input type="text" id="originalNominationId" placeholder="UUID of the nomination this replaces">' +
+            '<input type="text" id="originalNominationId" placeholder="UUID of the nomination this replaces"' +
+            (openForRevision ? ' value="' + esc(q.submission.id) + '" readonly' : "") + ">" +
             '<div class="err"></div></div>' +
 
           '<div class="form-actions">' +
@@ -512,17 +685,134 @@
         '<p style="margin:0;font-size:12.5px;color:var(--ink-2)">Every field is required, both ' +
         "email addresses must be valid, and you can't nominate yourself. Anything missed is " +
         "flagged against the field when you submit.</p>" +
-        '<h4 style="margin-top:14px">AI check</h4>' +
-        '<p style="margin:0;font-size:12.5px;color:var(--ink-2)">When you submit, the text is ' +
-        "sent to Groq (openai/gpt-oss-20b) which scores how reviewable it is out of 100 and " +
-        "explains why. You'll see the result on this page straight away. It's advisory — it " +
-        "never blocks a submission and never decides the outcome.</p>" +
         '<h4 style="margin-top:14px">Your details</h4>' +
         '<p style="margin:0;font-size:12.5px;color:var(--ink-2)">Pre-filled from the profile ' +
         "you're viewing as (" + esc(persona().name) + "). Change the profile in the bottom-left " +
         "corner to submit as someone else.</p></div></div>" +
       "";
   };
+
+  /* The five business categories. The examples sit under the picker and swap
+     as you change it: a nominator who has just read "process time reduced,
+     tasks automated" is far likelier to put a number in the WHAT than one
+     looking at an empty box. That is the main reason this field exists at all,
+     beyond making the reporting possible. */
+  /* Nominator identity, rendered as fixed facts rather than inputs.
+     Two reasons. It removes the "nominate under a colleague's name to get a
+     second entry" route, and it stops honest typos putting a nomination under
+     an address that never receives the outcome email.
+
+     Server-side note: there is no authentication yet, so a determined person
+     can still POST any nominator they like. This closes the path through the
+     interface, not the API - and the quarter limit is re-checked on the server
+     against whatever email arrives, so the block still holds for the identity
+     actually submitted. */
+  function lockedNominatorFields() {
+    var p = persona();
+    return '<div class="lockedfields">' +
+      '<div class="lockedfields__head"><span class="lockedfields__icon" aria-hidden="true">🔒</span>' +
+      "<span>Submitting as — taken from your signed-in profile</span></div>" +
+      '<div class="row2">' +
+        '<div class="lockedfield"><span class="lockedfield__label">Your name</span>' +
+          '<span class="lockedfield__value">' + esc(p.name) + "</span></div>" +
+        '<div class="lockedfield"><span class="lockedfield__label">Your email</span>' +
+          '<span class="lockedfield__value">' + esc(p.email) + "</span></div>" +
+      "</div>" +
+      '<input type="hidden" id="nominatorName" value="' + esc(p.name) + '">' +
+      '<input type="hidden" id="nominatorEmail" value="' + esc(p.email) + '">' +
+      '<p class="lockedfields__note">' +
+      "You can't nominate on someone else's behalf. " +
+      "To submit as a different person, switch profile in the bottom-left corner.</p>" +
+      "</div>";
+  }
+
+  /* Countdown chip. Turns urgent inside a fortnight and says so in words as
+     well as colour, because the whole point is that it is noticed. */
+  function quarterChip() {
+    var q = store.quarter;
+    if (!q) return "";
+    var days = q.daysUntilDeadline;
+    var cls = days < 0 ? "closed" : (days <= 14 ? "urgent" : "");
+    var text = days < 0
+      ? q.label + " deadline passed"
+      : (days === 0 ? q.label + " — closes today"
+        : q.label + " — " + days + " day" + (days === 1 ? "" : "s") + " left");
+    return '<span class="quarterchip ' + cls + '"><span aria-hidden="true">◷</span>' +
+      esc(text) + "</span>";
+  }
+
+  function quarterBanner() {
+    var q = store.quarter;
+    if (!q) return "";
+    var days = q.daysUntilDeadline;
+    if (days < 0) {
+      return '<div class="notice"><span class="glyph">▲</span><div>' +
+        "<b>" + esc(q.label) + " has closed.</b> Its deadline was " + esc(fmtDay(q.deadline)) +
+        ". Anything submitted now still counts toward " + esc(q.label) +
+        " until the quarter itself ends.</div></div>";
+    }
+    return '<div class="notice" style="border-style:solid;border-color:' +
+      "color-mix(in srgb, var(--brand) 30%, var(--border));background:" +
+      'color-mix(in srgb, var(--brand) 6%, var(--surface))">' +
+      '<span class="glyph" style="color:var(--brand)">◷</span><div>' +
+      "<b>" + esc(q.label) + " is open.</b> You have one nomination this quarter, and " +
+      esc(String(days)) + " day" + (days === 1 ? "" : "s") + " until the deadline on " +
+      esc(fmtDay(q.deadline)) + ".</div></div>";
+  }
+
+  /* Shown in place of the form once the quarter's nomination is used. */
+  function quarterUsedPanel(q) {
+    var sub = q.submission || {};
+    return '<div class="card"><header><h2>' +
+      "You've nominated for " + esc(q.label) + "</h2>" +
+      '<div class="spacer"></div>' + pill(sub.status) + "</header><div class=\"body\">" +
+      '<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">' +
+        avatar(sub.nomineeName) +
+        '<div style="min-width:0;flex:1 1 220px">' +
+          '<div style="font-size:16px;font-weight:600">' + esc(sub.nomineeName || "—") + "</div>" +
+          '<div class="muted" style="font-size:12.5px;margin-top:2px">' +
+            (sub.categoryLabel ? esc(sub.categoryLabel) + " · " : "") +
+            "submitted " + esc(fmtDate(sub.submittedAt)) + "</div>" +
+        "</div>" +
+      "</div>" +
+      '<p class="sub" style="margin:16px 0 0">Your next nomination opens in <b>' +
+      esc(q.nextQuarterLabel) + "</b>. You'll see a notice here when it does.</p>" +
+      '<div style="margin-top:16px"><a class="btn" href="#/mine">Track this nomination</a></div>' +
+      "</div></div>";
+  }
+
+  function categoryField() {
+    var opts = store.categories.map(function (c) {
+      return '<option value="' + esc(c.value) + '">' + esc(c.label) + "</option>";
+    }).join("");
+
+    return '<div class="field" data-field="category">' +
+      '<label for="category">Business category <span class="req">*</span></label>' +
+      '<select id="category"><option value="">Select a category…</option>' + opts + "</select>" +
+      '<p class="field__hint" id="categoryHint">Pick the kind of impact this nomination ' +
+      "evidences — the examples will show what that category expects.</p>" +
+      '<div class="err"></div></div>';
+  }
+
+  /* The core value, picked from a list rather than left to the prose.
+     It sits directly above the HOW because it sets the question that box has to
+     answer: "how did they show Personal Commitment?" is a far easier thing to
+     write well than "how did they demonstrate a core value?", which is what
+     produced most of the vague HOW text in the first place. */
+  function coreValueField() {
+    var opts = store.coreValues.map(function (v) {
+      return '<option value="' + esc(v.value) + '">' + esc(v.label) + "</option>";
+    }).join("");
+
+    return '<div class="field" data-field="coreValue">' +
+      '<label for="coreValue">Which core value did they demonstrate? ' +
+      '<span class="req">*</span></label>' +
+      '<select id="coreValue"><option value="">Select a core value…</option>' + opts + "</select>" +
+      '<p class="field__hint" id="coreValueHint">' +
+      "Version 1's six core values. Pick the one this contribution best shows — " +
+      "then explain how underneath.</p>" +
+      '<div class="err"></div></div>';
+  }
 
   function field(id, label, type, list) {
     return '<div class="field" data-field="' + id + '">' +
@@ -543,9 +833,9 @@
     }
     if (!list.length) return '<div class="empty">Nothing here yet.</div>';
 
-    var showAi = isCoordinator();
+    var showAi = canSeeAi();
     return '<div class="tablewrap"><table><thead><tr>' +
-      "<th>Nominee</th><th>Nominated by</th><th>Practice</th><th>Location</th>" +
+      "<th>Nominee</th><th>Nominated by</th><th>Category</th><th>Practice</th><th>Location</th>" +
       (showAi ? "<th>AI</th>" : "") +
       "<th>Status</th><th>Submitted</th></tr></thead><tbody>" +
       list.map(function (n) {
@@ -553,6 +843,7 @@
           '<td class="nowrap"><span style="display:inline-flex;align-items:center;gap:10px">' +
             avatar(n.nomineeName, "sm") + "<b>" + esc(n.nomineeName) + "</b></span></td>" +
           "<td>" + esc(n.nominatorName) + "</td>" +
+          "<td>" + categoryChip(n) + "</td>" +
           "<td>" + esc(n.practice) + "</td>" +
           "<td>" + esc(n.location) + "</td>" +
           (showAi ? '<td class="nowrap">' + aiCell(n) + "</td>" : "") +
@@ -619,7 +910,7 @@
     // A coordinator sees everything, filterable.
     if (!isCoordinator()) {
       var approved = store.nominations.filter(function (n) { return n.status === "APPROVED"; });
-      return '<div class="star-hero">' + starLockup("Version 1 Recognition") +
+      return '<div class="star-hero">' + starLockup("Spotlight") +
           "<h1>Colleagues recognised for going above and beyond</h1>" +
           "<p>The Star Award is for outstanding contribution — not for doing the job well, " +
           "but for the thing nobody expected and everybody felt.</p></div>" +
@@ -634,7 +925,7 @@
         "";
     }
 
-    return '<div class="star-hero">' + starLockup("Version 1 Recognition") +
+    return '<div class="star-hero">' + starLockup("Spotlight") +
         "<h1>Every nomination, by status</h1>" +
         "<p>Select a row for the full record, the assessment and the decision history.</p></div>" +
         '<div class="head-row" style="margin-bottom:18px">' + roleChip(persona().role) +
@@ -647,6 +938,7 @@
           '<button class="tab" data-f="APPROVED">Approved</button>' +
           '<button class="tab" data-f="REJECTED">Rejected</button>' +
         "</div></header>" +
+        filterBar() +
         '<div id="starTable">' + nominationTable(store.nominations) + "</div>" +
         '<div id="detail"></div></div>' +
       "";
@@ -654,31 +946,46 @@
 
   /* ---------- Review Queue (coordinator only) ---------- */
   views.queue = function () {
-    var pending = store.nominations.filter(function (n) { return n.status === "PENDING_REVIEW"; });
     var c = counts();
+    var total = store.nominations.length;
+    var decided = c.APPROVED + c.REJECTED + c.NEEDS_RESUBMISSION;
+    var pct = total ? Math.round(decided / total * 100) : 0;
+
+    var showing = queueFilter || "PENDING_REVIEW";
+    var list = store.nominations.filter(function (n) { return n.status === showing; });
 
     return '<div class="page-head"><div class="head-row"><div>' +
         "<h1>Review Queue</h1><p>Nominations waiting on a decision from you, " +
         esc(persona().name) + ".</p></div>" +
-        '<div class="spacer"></div>' + roleChip("COORDINATOR") +
-        tagLive() + "</div></div>" +
+        '<div class="spacer"></div>' + roleChip("COORDINATOR") + quarterChip() + "</div></div>" +
+
+      // Progress reads off the same counts as the tiles, recomputed on every
+      // render, so a decision moves the bar immediately rather than leaving it
+      // showing the state the page was opened in.
+      '<div class="progress"><div class="progress__head">' +
+        "<b>" + decided + " of " + total + " reviewed</b>" +
+        '<span class="muted">' + c.PENDING_REVIEW + " still awaiting a decision</span></div>" +
+        '<div class="progress__track"><div class="progress__fill" style="width:' + pct + '%"></div></div>' +
+        '<div class="progress__legend muted">' + pct + "% complete</div></div>" +
 
       '<div class="kpis">' +
-        kpi("k-star", "Waiting on you", pending.length, "", true) +
-        kpi("k-praise", "Approved to date", c.APPROVED, "", true) +
-        kpi("k-total", "Rejected to date", c.REJECTED, "", true) +
-        kpi("k-mtm", "Sent back for detail", c.NEEDS_RESUBMISSION, "", true) +
+        kpi("k-star", "Awaiting review", c.PENDING_REVIEW, "", true, "PENDING_REVIEW") +
+        kpi("k-praise", "Approved", c.APPROVED, "", true, "APPROVED") +
+        kpi("k-total", "Rejected", c.REJECTED, "", true, "REJECTED") +
+        kpi("k-mtm", "Sent back for detail", c.NEEDS_RESUBMISSION, "", true, "NEEDS_RESUBMISSION") +
       "</div>" +
 
       '<div class="notice"><span class="glyph">▲</span><div>' +
         "<b>The AI score is advisory.</b> It flags language patterns for your attention — " +
         "it never approves or rejects anything. Every decision below is recorded against " +
-        "<b>" + esc(persona().email) + "</b> in the audit log. " +
+        "<b>" + esc(persona().email) + "</b> in the activity log. " +
         'See all assessments weakest-first on <a href="#/ai">AI Review</a>.</div></div>' +
 
-      '<div class="card"><header><h2>Awaiting review</h2>' +
-        '<div class="spacer"></div><button class="btn-sm" id="refreshBtn">Refresh</button></header>' +
-        nominationTable(pending) + '<div id="detail"></div></div>' +
+      '<div class="card"><header><h2>' + esc((STATUS[showing] || {}).label || showing) + "</h2>" +
+        '<div class="spacer"></div><span class="ep">' + list.length + " nomination" +
+        (list.length === 1 ? "" : "s") + "</span>" +
+        '<button class="btn-sm" id="refreshBtn">Refresh</button></header>' +
+        nominationTable(list) + '<div id="detail"></div></div>' +
       "";
   };
 
@@ -813,11 +1120,144 @@
     "</div>";
   }
 
-  function kpi(cls, label, value, foot, live) {
-    return '<div class="kpi ' + cls + '"><div class="lab">' + esc(label) +
-      (live ? "" : " " + tagSample()) + "</div>" +
+  /* ---------- Quarters (coordinator only) ------------------------------
+     Who has taken part, quarter by quarter. The current quarter is first and
+     stays open; older ones collapse, because the question a coordinator asks
+     about a past quarter ("who nominated, and did it land?") is answered by
+     the summary line until they specifically want the names.
+     -------------------------------------------------------------------- */
+  views.quarters = function () {
+    var history = store.quarterHistory || [];
+    var current = history.filter(function (q) { return q.isCurrent; })[0];
+
+    return '<div class="page-head"><div class="head-row"><div>' +
+        "<h1>Quarters</h1><p>Participation by quarter — who has nominated, and what happened to it.</p></div>" +
+        '<div class="spacer"></div>' + roleChip("COORDINATOR") + quarterChip() + "</div></div>" +
+
+      (current
+        ? '<div class="kpis">' +
+            kpi("k-star", "Nominated so far", current.participants,
+                "in " + esc(current.label), true) +
+            kpi("k-total", "Nominations", current.totalNominations, "", true) +
+            kpi("k-mtm", "Awaiting review", current.pending, "", true) +
+            kpi("k-praise", "Approved", current.approved, "", true) +
+          "</div>"
+        : "") +
+
+      '<div class="notice"><span class="glyph">▲</span><div>' +
+        "<b>One nomination per person, per quarter.</b> Someone appearing once here has " +
+        "used their entry for that quarter; a resubmission is marked as such and doesn't " +
+        "count as a second. Quarters are calendar quarters in UTC." +
+      "</div></div>" +
+
+      (history.length
+        ? history.map(quarterCard).join("")
+        : '<div class="card"><div class="empty">No nominations on record yet.</div></div>');
+  };
+
+  function quarterCard(q) {
+    var open = q.isCurrent ? " open" : "";
+    var people = (q.nominators || []).slice().sort(function (a, b) {
+      return String(a.nominatorName || "").localeCompare(String(b.nominatorName || ""));
+    });
+
+    var rows = people.length
+      ? '<div class="tablewrap"><table><thead><tr><th>Nominator</th><th>Nominated</th>' +
+        "<th>Category</th><th>Status</th></tr></thead><tbody>" +
+        people.map(function (p) {
+          return (p.nominations || []).map(function (n, i) {
+            return "<tr>" +
+              (i === 0
+                ? '<td class="nowrap"><span style="display:inline-flex;align-items:center;gap:10px">' +
+                  avatar(p.nominatorName, "sm") + "<span><b>" + esc(p.nominatorName) + "</b><br>" +
+                  '<span class="muted" style="font-size:11.5px">' + esc(p.nominatorEmail) +
+                  "</span></span></span></td>"
+                : "<td></td>") +
+              "<td>" + esc(n.nomineeName) +
+              (n.isResubmission ? ' <span class="valchip">resubmission</span>' : "") + "</td>" +
+              "<td>" + (n.categoryLabel ? esc(n.categoryLabel) :
+                '<span class="muted" style="font-size:12px">—</span>') + "</td>" +
+              "<td>" + pill(n.status) + "</td></tr>";
+          }).join("");
+        }).join("") + "</tbody></table></div>"
+      : '<div class="empty">Nobody has nominated in ' + esc(q.label) + " yet.</div>";
+
+    return '<details class="quartercard"' + open + '><summary>' +
+      '<span class="quartercard__label">' + esc(q.label) +
+        (q.isCurrent ? ' <span class="tag live"><span class="dot"></span>current</span>' : "") +
+      "</span>" +
+      '<span class="quartercard__stats">' +
+        esc(String(q.participants)) + " nominated · " +
+        esc(String(q.totalNominations)) + " nomination" + (q.totalNominations === 1 ? "" : "s") +
+        " · " + esc(String(q.approved)) + " approved" +
+      "</span>" +
+      '<span class="quartercard__deadline muted">deadline ' + esc(fmtDay(q.deadline)) + "</span>" +
+      "</summary>" + rows + "</details>";
+  }
+
+  /* `filter` turns the tile into a button that filters the list below it.
+     A count you can see but not act on makes you go and find the rows yourself,
+     which is the whole job the tile was supposed to save you. */
+  /* ---------- Activity Log (coordinator only) --------------------------
+     Every recorded action, newest first. The per-nomination history answers
+     "what happened to this one"; this answers "what has the team been doing",
+     which is the question you have when reviewing how decisions get made
+     rather than checking a single one.
+     -------------------------------------------------------------------- */
+  views.activity = function () {
+    var rows = store.activity || [];
+    var withEmail = rows.reduce(function (a, r) { return a + (r.comms || []).length; }, 0);
+    var withNote = rows.filter(function (r) { return r.comment; }).length;
+
+    return '<div class="page-head"><div class="head-row"><div>' +
+        "<h1>Activity Log</h1><p>Every decision, note and generated message — newest first.</p></div>" +
+        '<div class="spacer"></div>' + roleChip("COORDINATOR") + tagLive() + "</div></div>" +
+
+      '<div class="kpis">' +
+        kpi("k-star", "Recorded actions", rows.length, "", true) +
+        kpi("k-praise", "Messages composed", withEmail, "", true) +
+        kpi("k-mtm", "With an internal note", withNote, "", true) +
+      "</div>" +
+
+      '<div class="notice"><span class="glyph">▲</span><div>' +
+        "<b>Messages are generated but not delivered.</b> No mail server is configured, " +
+        "so what you see here is the exact text a nominator would receive. It is stored " +
+        "as written at the time — editing a template later doesn't rewrite past records." +
+      "</div></div>" +
+
+      (rows.length
+        ? '<div class="card"><div class="body" style="padding-top:6px">' +
+          '<ul class="timeline">' + rows.map(activityRow).join("") + "</ul></div></div>"
+        : '<div class="card"><div class="empty">Nothing recorded yet — no decisions have been made.</div></div>');
+  };
+
+  function activityRow(e) {
+    var a = ACTION[e.action] || { cls: "", g: "•", label: e.action };
+    return '<li><span class="tl-dot ' + a.cls + '">' + a.g + "</span>" +
+      '<span class="tl-body">' +
+        '<span class="tl-what"><b>' + esc(a.label) + "</b> — " + esc(e.nomineeName) +
+        (e.nominatorName ? ' <span class="muted">nominated by ' + esc(e.nominatorName) + "</span>" : "") +
+        "</span>" +
+        '<span class="tl-why muted">by ' + esc(e.coordinatorEmail) +
+        (e.categoryLabel ? " · " + esc(e.categoryLabel) : "") + "</span>" +
+        (e.reason ? '<span class="tl-why">' + esc(e.reason) + "</span>" : "") +
+        (e.comment ? '<span class="tl-note"><b>Note:</b> ' + esc(e.comment) + "</span>" : "") +
+        emailBlock(e) +
+      "</span>" +
+      '<span class="tl-when">' + esc(fmtDate(e.occurredAt)) + "</span></li>";
+  }
+
+  function kpi(cls, label, value, foot, live, filter) {
+    var inner = '<div class="lab">' + esc(label) + (live ? "" : " " + tagSample()) + "</div>" +
       '<div class="val">' + esc(String(value)) + "</div>" +
-      (foot ? '<div class="foot sub">' + foot + "</div>" : "") + "</div>";
+      (foot ? '<div class="foot sub">' + foot + "</div>" : "");
+
+    if (!filter) {
+      return '<div class="kpi ' + cls + '">' + inner + "</div>";
+    }
+    return '<button type="button" class="kpi kpi--clickable ' + cls +
+      '" data-status-filter="' + esc(filter) + '">' + inner +
+      '<span class="kpi__cue">View →</span></button>';
   }
 
   /* ---------- Praises (shell) ---------- */
@@ -838,7 +1278,7 @@
 
   views.praises = function () {
     return '<div class="page-head"><div class="head-row"><div>' +
-        "<h1>Praises Wall</h1><p>See the recognitions shared across Version 1.</p></div>" +
+        "<h1>Praises Wall</h1><p>See the recognitions shared across the business.</p></div>" +
         '<div class="spacer"></div>' + tagShell() +
         '<a class="btn btn-praise" href="#/praises/new">Give a Praise</a></div></div>' +
       shellNotice("Praises, likes and comments aren't built yet.") +
@@ -880,7 +1320,7 @@
         '<div class="field"><label style="display:flex;gap:9px;align-items:flex-start;font-weight:400">' +
           '<input type="checkbox" id="prPublic" style="width:auto;margin-top:2px" checked>' +
           '<span><b style="font-weight:600">Make this praise visible on the Praise Wall</b><br>' +
-          '<span class="muted" style="font-size:12.5px">Others in Version 1 will see this praise.</span>' +
+          '<span class="muted" style="font-size:12.5px">Colleagues will see this praise.</span>' +
           "</span></label></div>" +
         '<div class="form-actions"><button class="btn-praise" disabled>Send Praise</button>' +
           "<button disabled>Save draft</button>" +
@@ -1129,7 +1569,7 @@
 
   views.help = function () {
     return '<div class="page-head"><div class="head-row"><div><h1>Help &amp; Guidelines</h1>' +
-      "<p>How recognition works at Version 1.</p></div>" +
+      "<p>How recognition works in Spotlight.</p></div>" +
       '<div class="spacer"></div><span class="tag live"><span class="dot"></span>static content</span>' +
       "</div></div>" +
       '<div class="grid-main"><div class="card"><div class="body">' +
@@ -1143,6 +1583,12 @@
         '<h3 style="font-size:15px;margin:18px 0 8px">Moments that Matter</h3>' +
         '<p class="sub">Gifts and support for life events — new babies, weddings, bereavement ' +
         "and health.</p>" +
+        '<h3 style="font-size:15px;margin:18px 0 8px">The six core values</h3>' +
+        '<p class="sub">Every Star Award nomination names one of these, and the HOW ' +
+        "explains how it was shown:</p>" +
+        '<ul class="sub" style="padding-left:18px;margin:0 0 4px">' +
+        VALUES.map(function (v) { return "<li>" + esc(v) + "</li>"; }).join("") +
+        "</ul>" +
         '<h3 style="font-size:15px;margin:18px 0 8px">Profiles and roles</h3>' +
         '<p class="sub">The switcher in the bottom-left corner changes which view you are ' +
         "looking at. <b>Employee</b> can submit recognition and track their own. " +
@@ -1154,6 +1600,7 @@
         "<li>Every field is required.</li>" +
         "<li>Both email addresses must be valid.</li>" +
         "<li>You can't nominate yourself — checked on the email address, case-insensitively.</li>" +
+        "<li>Every nomination names one of the six core values, picked from a list.</li>" +
         "<li>New nominations are always created as PENDING_REVIEW.</li>" +
         "<li>A nomination can only be decided once — approve, reject and resubmission " +
         "requests all require it to still be pending.</li>" +
@@ -1219,11 +1666,13 @@
       // how to improve them. You do not see the model's read on a nomination
       // somebody else wrote about you - that is a different thing, and not
       // obviously a kind one. Coordinators see everything; it is their review aid.
-      (canSeeAi(n) ? aiPanel(n) : "") +
+      (canSeeAi() ? aiPanel(n) : "") +
       (isCoordinator() ? actionBar(n) : "") +
 
       '<div class="prose"><div class="k">What</div><div class="v">' + esc(n.whatText) + "</div></div>" +
-      '<div class="prose"><div class="k">How</div><div class="v">' + esc(n.howText) + "</div></div>" +
+      '<div class="prose"><div class="k">How' +
+        (n.coreValueLabel ? " — " + esc(n.coreValueLabel) : "") +
+        '</div><div class="v">' + esc(n.howText) + "</div></div>" +
 
       (n.rejectionReason
         ? '<div class="prose"><div class="k">' +
@@ -1235,19 +1684,30 @@
         metaCell("Id", n.id) +
         metaCell("Nominated by", n.nominatorName + " · " + (n.nominatorEmail || "—")) +
         metaCell("Nominee", n.nomineeName + " · " + (n.nomineeEmail || "—")) +
+        metaCell("Category", categoryLabel(n) || "Uncategorised") +
+        metaCell("Core value", n.coreValueLabel || "—") +
         metaCell("Practice", n.practice) + metaCell("Location", n.location) +
         metaCell("Submitted", fmtDate(n.submittedAt)) +
         metaCell("Decision date", fmtDate(n.decisionDate)) +
+        // Who reviewed it is internal. An employee learning which named
+        // coordinator turned their nomination down invites them to go and argue
+        // with that person, which helps nobody and discourages honest reviewing.
+        (isCoordinator() && n.coordinatorEmail
+          ? metaCell("Decided by", n.coordinatorEmail) : "") +
         metaCell("Comms sent", fmtDate(n.commsSentDate)) +
         metaCell("Resubmission of", n.originalNominationId || "—") +
       "</div>" +
 
-      '<div style="margin-top:16px"><div class="k" style="margin-bottom:8px">Activity history</div>' +
-      '<div id="auditBox"><p class="muted" style="font-size:12.5px">Loading…</p></div></div>';
+      (isCoordinator()
+        ? '<div style="margin-top:16px"><div class="k" style="margin-bottom:8px">Activity history</div>' +
+          '<div id="auditBox"><p class="muted" style="font-size:12.5px">Loading…</p></div></div>'
+        : "");
 
     $("#closeDetail").addEventListener("click", closeDetail);
-    if (isCoordinator()) wireActions(n);
-    loadAudit(n.id);
+    if (isCoordinator()) {
+      wireActions(n);
+      loadAudit(n.id);
+    }
   }
 
   function closeDetail() {
@@ -1277,9 +1737,69 @@
     }).join("") + "</ul>";
   }
 
-  function canSeeAi(n) {
-    if (isCoordinator()) return true;
-    return String(n.nominatorEmail || "").toLowerCase() === persona().email.toLowerCase();
+  /* Five categories is past the point where colour alone is readable, so the
+     chip always carries its full label and the tint is only a secondary cue. */
+  var CATEGORY_TINT = {
+    COLLABORATION_AND_ENGAGEMENT: "var(--praise)",
+    CUSTOMER_IMPACT: "var(--info)",
+    INNOVATION_AND_GROWTH: "var(--star)",
+    PERFORMANCE_AND_EFFICIENCY: "var(--mtm)",
+    QUALITY_AND_COMPLIANCE: "var(--good)"
+  };
+
+  /* Category, practice and location together. The brief calls for practice and
+     location filtering specifically - those are how the programme is reported on
+     internally, by division. */
+  function filterBar() {
+    return '<div class="filterbar">' +
+      '<label for="catFilter">Category</label>' +
+      '<select id="catFilter"><option value="">All categories</option>' +
+        store.categories.map(function (c) {
+          return '<option value="' + esc(c.value) + '">' + esc(c.label) + "</option>";
+        }).join("") +
+        '<option value="__none">Uncategorised</option></select>' +
+      '<label for="practiceFilter">Practice</label>' +
+      '<select id="practiceFilter"><option value="">All practices</option>' +
+        distinct("practice").map(function (v) {
+          return '<option value="' + esc(v) + '">' + esc(v) + "</option>";
+        }).join("") + "</select>" +
+      '<label for="locationFilter">Location</label>' +
+      '<select id="locationFilter"><option value="">All locations</option>' +
+        distinct("location").map(function (v) {
+          return '<option value="' + esc(v) + '">' + esc(v) + "</option>";
+        }).join("") + "</select>" +
+      '<span class="spacer"></span>' +
+      '<button type="button" class="linkish" id="clearFilters">Clear</button>' +
+      '<span class="muted" id="filterCount"></span></div>';
+  }
+
+  /* Options come from the data rather than a fixed list, so a practice nobody
+     has used yet doesn't appear and a new one shows up without a code change. */
+  function distinct(field) {
+    var seen = {};
+    store.nominations.forEach(function (n) {
+      if (n[field]) seen[n[field]] = true;
+    });
+    return Object.keys(seen).sort();
+  }
+
+  function categoryChip(n) {
+    var label = categoryLabel(n);
+    if (!label) {
+      return '<span class="muted" style="font-size:12px">Uncategorised</span>';
+    }
+    var tint = CATEGORY_TINT[n.category] || "var(--muted)";
+    return '<span class="catchip"><span class="catchip__dot" style="background:' + tint +
+      '"></span>' + esc(label) + "</span>";
+  }
+
+  /* The AI assessment is a reviewer's tool and nothing else. Employees see no
+     score, no rationale and no flags - not even on their own nomination. A
+     nominator reading "41/100, weak justification" about words they wrote is
+     being given a machine's opinion dressed as a verdict, which is the opposite
+     of what an advisory signal is for. */
+  function canSeeAi() {
+    return isCoordinator();
   }
 
   function aiPanel(n) {
@@ -1347,6 +1867,10 @@
           '<label for="reasonText" id="reasonLabel"></label>' +
           '<textarea id="reasonText" rows="3"></textarea>' +
           '<div class="err" id="reasonErr"></div></div>' +
+        '<div class="field" style="margin-bottom:10px">' +
+          '<label for="commentText">Internal note (optional)</label>' +
+          '<textarea id="commentText" rows="2" placeholder="Context for whoever reads this record later."></textarea>' +
+          '<p class="field__hint">Included in the message to the nominator and kept in the log.</p></div>' +
         '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
           '<button type="submit" class="btn-star btn-sm" id="reasonConfirm">Confirm</button>' +
           '<button type="button" class="btn-sm" id="reasonCancel">Cancel</button></div>' +
@@ -1359,12 +1883,24 @@
     $$("[data-act]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var act = btn.getAttribute("data-act");
-        if (act === "approve") { submitDecision(n, "approve", null); return; }
+        pendingAct = act;
+        var form = $("#reasonForm");
+        var reasonField = $("#reasonText").closest(".field");
+
+        if (act === "approve") {
+          // Approving needs no justification, but a note is often worth having,
+          // so the form still opens - with the reason box hidden.
+          reasonField.hidden = true;
+          $("#reasonConfirm").textContent = "Confirm approval";
+          $("#reasonErr").textContent = "";
+          form.hidden = false;
+          $("#commentText").focus();
+          return;
+        }
+        reasonField.hidden = false;
 
         // Reject and request-resubmission both require a reason: the person on
         // the other end gets told why, so an empty one is not acceptable.
-        pendingAct = act;
-        var form = $("#reasonForm");
         $("#reasonLabel").textContent = act === "reject"
           ? "Why is this being rejected? The nominator will be sent this."
           : "What does the nominator need to add? Be specific — they'll build on their original wording.";
@@ -1385,18 +1921,20 @@
     if (form) form.addEventListener("submit", function (e) {
       e.preventDefault();
       var reason = $("#reasonText").value.trim();
-      if (!reason) {
+      var comment = $("#commentText").value.trim();
+      if (pendingAct !== "approve" && !reason) {
         $("#reasonErr").textContent = "A reason is required.";
         $("#reasonErr").style.display = "block";
         return;
       }
-      submitDecision(n, pendingAct, reason);
+      submitDecision(n, pendingAct, pendingAct === "approve" ? null : reason, comment);
     });
   }
 
-  function submitDecision(n, action, reason) {
+  function submitDecision(n, action, reason, comment) {
     var body = { coordinatorEmail: persona().email };
     if (reason) body.reason = reason;
+    if (comment) body.comment = comment;
 
     $$("[data-act]").forEach(function (b) { b.disabled = true; });
     var confirmBtn = $("#reasonConfirm");
@@ -1437,10 +1975,11 @@
         // Re-read the list so counts and pills are right, then reopen the same
         // record so the coordinator sees the decision landed rather than being
         // dropped back to an unchanged-looking table.
-        return loadNominations().then(function () {
-          render();
-          showDetail(n.id);
-        });
+        return Promise.all([loadNominations(), loadActivity(), loadQuarterHistory()])
+          .then(function () {
+            render();
+            showDetail(n.id);
+          });
       })
       .catch(function (e) {
         toast({ kind: "coordinator", title: "Couldn't save that decision", msg: "The app didn't respond. Check it's still running and try again.", sticky: true });
@@ -1469,7 +2008,12 @@
           return '<li><span class="tl-dot ' + a.cls + '">' + a.g + "</span>" +
             '<span class="tl-body"><span class="tl-what"><b>' + esc(a.label) + "</b> by " +
             esc(e.coordinatorEmail) + "</span>" +
-            (e.reason ? '<span class="tl-why">' + esc(e.reason) + "</span>" : "") + "</span>" +
+            (e.reason ? '<span class="tl-why">' + esc(e.reason) + "</span>" : "") +
+            (e.comment
+              ? '<span class="tl-note"><b>Note:</b> ' + esc(e.comment) + "</span>"
+              : "") +
+            emailBlock(e) +
+            "</span>" +
             '<span class="tl-when">' + esc(fmtDate(e.occurredAt)) + "</span></li>";
         }).join("") + "</ul>";
       })
@@ -1478,6 +2022,24 @@
         if (box) box.innerHTML = '<p class="muted" style="font-size:12.5px">' +
           "Couldn't load history — " + esc(e.message) + "</p>";
       });
+  }
+
+  /* The message the decision generated, verbatim. Collapsed by default: a
+     coordinator scanning history wants the actions, and only occasionally the
+     exact wording someone received. Labelled as not delivered, because there is
+     no mail server and implying otherwise would be a lie in an audit trail. */
+  function emailBlock(e) {
+    var comms = e.comms || [];
+    if (!comms.length) return "";
+    return comms.map(function (c) {
+      var who = c.recipientRole === "NOMINEE" ? "nominee" : "nominator";
+      return '<details class="emaillog"><summary>' +
+        '<span class="emaillog__tag">to ' + who + "</span> " + esc(c.subject || "") +
+        '<span class="muted"> — ' + esc(c.recipientEmail || "—") + "</span></summary>" +
+        '<div class="emaillog__meta muted">Composed ' + esc(fmtDate(c.sentAt)) +
+        " · not delivered (no mail server configured)</div>" +
+        '<pre class="emaillog__body">' + esc(c.body || "") + "</pre></details>";
+    }).join("");
   }
 
   function metaCell(k, v) {
@@ -1526,8 +2088,14 @@
     return (location.hash || "#/home").replace(/^#\/?/, "") || "home";
   }
 
+  var lastRoute = null;
+
   function render() {
     var r = route();
+    if (r !== lastRoute) {
+      if (lastRoute === "queue") { queueFilter = null; }
+      lastRoute = r;
+    }
 
     if (!routeAllowed(r)) {
       // Reached by URL, or by switching to a role that can't see this screen.
@@ -1555,12 +2123,76 @@
   function wire(r) {
     if (r === "submit") wireForm();
     if (r === "mine" || r === "stars" || r === "queue") wireList();
+    if (r === "activity") {
+      loadActivity().then(function () {
+        if (route() === "activity") { $("#view").innerHTML = views.activity(); }
+      });
+    }
+    if (r === "quarters") {
+      // Cheap, and stops a coordinator reading a stale participation list after
+      // approving something in another tab.
+      loadQuarterHistory().then(function () {
+        if (route() === "quarters") { $("#view").innerHTML = views.quarters(); }
+      });
+    }
     if (r === "praises/new") wirePraisePreview();
     if (r === "mtm/new") wireChips("#mtmTypes", true);
   }
 
+  function applyFilters() {
+    var list = store.nominations;
+    if (currentFilter) {
+      list = list.filter(function (n) { return n.status === currentFilter; });
+    }
+    if (currentCategory === "__none") {
+      list = list.filter(function (n) { return !n.category; });
+    } else if (currentCategory) {
+      list = list.filter(function (n) { return n.category === currentCategory; });
+    }
+    if (currentPractice) {
+      list = list.filter(function (n) { return n.practice === currentPractice; });
+    }
+    if (currentLocation) {
+      list = list.filter(function (n) { return n.location === currentLocation; });
+    }
+    var table = $("#starTable");
+    if (table) {
+      table.innerHTML = nominationTable(list);
+      bindRows();
+    }
+    var count = $("#filterCount");
+    if (count) {
+      count.textContent = list.length + " of " + store.nominations.length + " shown";
+    }
+    closeDetail();
+  }
+
   function wireList() {
     currentFilter = null;
+    currentCategory = "";
+
+    $$("[data-status-filter]").forEach(function (tile) {
+      tile.addEventListener("click", function () {
+        queueFilter = tile.getAttribute("data-status-filter");
+        render();
+      });
+    });
+
+    currentPractice = "";
+    currentLocation = "";
+
+    bindFilter("#catFilter", function (v) { currentCategory = v; });
+    bindFilter("#practiceFilter", function (v) { currentPractice = v; });
+    bindFilter("#locationFilter", function (v) { currentLocation = v; });
+
+    var clear = $("#clearFilters");
+    if (clear) clear.addEventListener("click", function () {
+      currentCategory = currentPractice = currentLocation = "";
+      ["#catFilter", "#practiceFilter", "#locationFilter"].forEach(function (sel) {
+        var el = $(sel); if (el) el.value = "";
+      });
+      applyFilters();
+    });
     var refresh = $("#refreshBtn");
     if (refresh) refresh.addEventListener("click", function () {
       loadNominations().then(render);
@@ -1573,16 +2205,17 @@
           $$(".tab", tabs).forEach(function (x) { x.classList.remove("on"); });
           t.classList.add("on");
           currentFilter = t.getAttribute("data-f") || null;
-          var list = currentFilter
-            ? store.nominations.filter(function (n) { return n.status === currentFilter; })
-            : store.nominations;
-          $("#starTable").innerHTML = nominationTable(list);
-          bindRows();
-          closeDetail();
+          applyFilters();
         });
       });
     }
     bindRows();
+  }
+
+  function bindFilter(selector, set) {
+    var el = $(selector);
+    if (!el) return;
+    el.addEventListener("change", function () { set(el.value); applyFilters(); });
   }
 
   function bindRows() {
@@ -1601,11 +2234,52 @@
     $("#nominatorName").value = p.name;
     $("#nominatorEmail").value = p.email;
 
+    var valSelect = $("#coreValue");
+    if (valSelect) {
+      valSelect.addEventListener("change", function () {
+        var chosen = store.coreValues.filter(function (v) {
+          return v.value === valSelect.value;
+        })[0];
+
+        var howLabel = $('label[for="howText"]');
+        var howBox = $("#howText");
+        if (chosen) {
+          $("#coreValueHint").textContent = chosen.prompt;
+          if (howLabel) {
+            howLabel.innerHTML = "HOW — how they demonstrated " + esc(chosen.label) +
+              ' <span class="req">*</span>';
+          }
+          if (howBox) {
+            howBox.placeholder = "Give a specific example of " + chosen.label +
+              " in action. What did they actually do, and what changed as a result?";
+          }
+        } else {
+          $("#coreValueHint").textContent = "Version 1's six core values. Pick the one " +
+            "this contribution best shows — then explain how underneath.";
+          if (howLabel) {
+            howLabel.innerHTML = 'HOW — how they demonstrated that value <span class="req">*</span>';
+          }
+          if (howBox) { howBox.placeholder = ""; }
+        }
+      });
+    }
+
+    var catSelect = $("#category");
+    if (catSelect) {
+      catSelect.addEventListener("change", function () {
+        var chosen = store.categories.filter(function (c) {
+          return c.value === catSelect.value;
+        })[0];
+        $("#categoryHint").textContent = chosen
+          ? "Evidence this category expects: " + chosen.examples
+          : "Pick the kind of impact this nomination evidences — the examples will "
+            + "show what that category expects.";
+      });
+    }
+
     function hideBanners() {
       $("#okBanner").className = "banner ok";
       $("#badBanner").className = "banner bad";
-      var ai = $("#submitAi");
-      if (ai) ai.innerHTML = "";   // don't leave the last submission's score above a new one
     }
     function clearErrors() {
       $$("[data-field]").forEach(function (w) {
@@ -1615,6 +2289,8 @@
     }
     function fill(v) {
       Object.keys(v).forEach(function (k) { if ($("#" + k)) $("#" + k).value = v[k]; });
+      if (catSelect) catSelect.dispatchEvent(new Event("change"));
+      if (valSelect) valSelect.dispatchEvent(new Event("change"));
     }
 
     $("#sampleBtn").addEventListener("click", function () {
@@ -1622,6 +2298,8 @@
       fill({ nominatorName: p.name, nominatorEmail: p.email,
              nomineeName: "Alex Rivera", nomineeEmail: "alex.rivera@version1.com",
              practice: "Cloud Engineering", location: "Dublin",
+             category: "CUSTOMER_IMPACT",
+             coreValue: "NO_EGO",
              whatText: "Led the release rollout over a tight weekend window and saved the client " +
                        "two full days of downtime, coordinating four teams across two time zones.",
              howText: "Collaboration and Excellence. Rather than working the weekend alone, Alex " +
@@ -1634,6 +2312,8 @@
       fill({ nominatorName: p.name, nominatorEmail: p.email,
              nomineeName: p.name, nomineeEmail: p.email,
              practice: "Cloud Engineering", location: "Dublin",
+             category: "PERFORMANCE_AND_EFFICIENCY",
+             coreValue: "DRIVE",
              whatText: "Kept the release on track.", howText: "Showed ownership throughout." });
     });
 
@@ -1676,30 +2356,30 @@
             $("#okText").innerHTML = "Star Award submitted — <code>" + esc(res.body.id) + "</code>";
             $("#okBanner").className = "banner ok show";
 
-            // The evaluator runs synchronously during POST, so the score is
-            // already on the response. Showing it here is the whole feedback
-            // loop: you find out your nomination reads as thin while you still
-            // remember what you meant to say, not a week later via a coordinator.
-            $("#submitAi").innerHTML =
-              '<div class="k" style="margin:4px 0 8px">AI check on what you just submitted</div>' +
-              aiPanel(res.body) +
-              '<p class="muted" style="font-size:12.5px;margin:-6px 0 16px">' +
-              "This is advisory and does not block anything — your nomination is in the " +
-              "coordinator's queue either way. A low score usually means adding the impact " +
-              "and naming a core value would help.</p>";
+            // Deliberately no AI result here. The score exists to order a
+            // coordinator's attention, not to give the nominator a mark out of
+            // 100 for words they just wrote about a colleague.
 
             toast({
               kind: "employee",
               title: "Nomination submitted",
-              msg: res.body.aiScore != null
-                ? "AI scored it " + res.body.aiScore + "/100. It's in the coordinator's review queue."
-                : res.body.nomineeName + " is now in the coordinator's review queue."
+              msg: res.body.nomineeName + " is now in the coordinator's review queue."
             });
             form.reset();
             $("#nominatorName").value = p.name;
             $("#nominatorEmail").value = p.email;
             $("#resubWrap").hidden = true;
-            return loadNominations().then(function () { renderNav(route().split("/")[0]); });
+            return Promise.all([loadNominations(), loadQuarter()]).then(function () {
+              renderNav(route().split("/")[0]);
+            });
+          }
+          if (res.body && res.body.reason === "QUARTER_LIMIT") {
+            // Re-read and re-render so the form is replaced by the "already
+            // nominated" panel, rather than sitting there inviting a retry.
+            $("#badText").textContent = res.body.error;
+            $("#badBanner").className = "banner bad show";
+            Promise.all([loadNominations(), loadQuarter()]).then(render);
+            return;
           }
           if (res.body && res.body.error) {
             $("#badText").textContent = res.body.error;
@@ -1760,10 +2440,14 @@
   /* ---------------- boot ---------------- */
   loadTheme();
   wireTheme();
+  loadGreyscale();
+  wireGreyscale();
   loadPersona();
   wirePersonaSwitcher();
   window.addEventListener("hashchange", render);
-  loadNominations().then(function () {
+  Promise.all([loadNominations(), loadCategories(), loadQuarter(), loadQuarterHistory(), loadActivity(), loadCoreValues()])
+    .then(function () {
+    announceNewQuarterIfChanged();
     render();
     // Say which account the session resumed on. Someone coming back to a tab
     // left in Admin / HR view should not have to work that out from the nav.

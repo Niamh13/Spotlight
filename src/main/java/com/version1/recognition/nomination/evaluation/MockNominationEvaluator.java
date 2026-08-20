@@ -1,4 +1,7 @@
-package com.version1.recognition.nomination;
+package com.version1.recognition.nomination.evaluation;
+
+import com.version1.recognition.nomination.AiFlag;
+import com.version1.recognition.nomination.Nomination;
 
 import org.springframework.stereotype.Component;
 

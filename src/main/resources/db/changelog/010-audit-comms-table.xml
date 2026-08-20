@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <!--
+        Changeset 008 gave each audit entry room for exactly one message, which
+        was wrong: approving a nomination has to notify two people. The nominator
+        gets a confirmation, and the nominee gets the award itself with the
+        nomination quoted - the brief is explicit that the nomination text goes
+        with it. With one slot, the nominee's message had nowhere to live and was
+        never written at all.
+
+        So messages move to their own table, one row per recipient. The five
+        columns 008 added are dropped rather than left behind: two places
+        claiming to hold "the message this decision sent" would disagree the
+        first time anyone touched either of them.
+    -->
+    <changeSet id="010-create-audit-comms-table" author="team">
+        <createTable tableName="nomination_audit_comms">
+            <column name="audit_log_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="recipient_email" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="recipient_role" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="subject" type="VARCHAR(500)"/>
+            <column name="body" type="CLOB"/>
+            <column name="sent_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="nomination_audit_comms"
+                baseColumnNames="audit_log_id"
+                referencedTableName="nomination_audit_log"
+                referencedColumnNames="id"
+                constraintName="fk_audit_comms_audit_log"/>
+
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="nomination_audit_comms"
+                                       constraintName="fk_audit_comms_audit_log"/>
+            <dropTable tableName="nomination_audit_comms"/>
+        </rollback>
+    </changeSet>
+
+    <!--
+        Carry across the single message 008 did manage to store, so the history
+        that exists isn't lost. Always the nominator's - that was the only one
+        the old shape could hold.
+    -->
+    <changeSet id="010-migrate-existing-emails" author="team">
+        <sql>
+            INSERT INTO nomination_audit_comms
+                (audit_log_id, recipient_email, recipient_role, subject, body, sent_at)
+            SELECT id, email_recipient, 'NOMINATOR', email_subject, email_body, email_sent_at
+              FROM nomination_audit_log
+             WHERE email_recipient IS NOT NULL;
+        </sql>
+        <rollback>
+            <delete tableName="nomination_audit_comms"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="010-drop-single-email-columns" author="team">
+        <dropColumn tableName="nomination_audit_log" columnName="email_recipient"/>
+        <dropColumn tableName="nomination_audit_log" columnName="email_subject"/>
+        <dropColumn tableName="nomination_audit_log" columnName="email_body"/>
+        <dropColumn tableName="nomination_audit_log" columnName="email_sent_at"/>
+
+        <rollback>
+            <addColumn tableName="nomination_audit_log">
+                <column name="email_recipient" type="VARCHAR(255)"/>
+                <column name="email_subject" type="VARCHAR(500)"/>
+                <column name="email_body" type="CLOB"/>
+                <column name="email_sent_at" type="TIMESTAMP"/>
+            </addColumn>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

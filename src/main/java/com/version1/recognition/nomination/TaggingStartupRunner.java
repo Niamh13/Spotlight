@@ -1,5 +1,7 @@
 package com.version1.recognition.nomination;
 
+import com.version1.recognition.nomination.evaluation.EvaluatorSelector;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;

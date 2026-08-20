@@ -1,4 +1,7 @@
-package com.version1.recognition.nomination;
+package com.version1.recognition.nomination.evaluation;
+
+import com.version1.recognition.nomination.Nomination;
+import com.version1.recognition.nomination.NominationService;
 
 /**
  * Judges the two language-quality signals (routine-task language, weak

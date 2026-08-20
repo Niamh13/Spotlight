@@ -1,4 +1,7 @@
-package com.version1.recognition.nomination;
+package com.version1.recognition.nomination.evaluation;
+
+import com.version1.recognition.nomination.AiFlag;
+import com.version1.recognition.nomination.Nomination;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,6 +17,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,11 +56,13 @@ public class GroqNominationEvaluator implements NominationEvaluator {
             .connectTimeout(Duration.ofSeconds(10))
             .build();
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final String promptTemplate;
 
-    public GroqNominationEvaluator() {
-        this.promptTemplate = loadPromptTemplate();
-    }
+    // Optional path to the prompt on disk. When set, the file is read fresh for
+    // every evaluation, so editing the prompt takes effect on the next
+    // submission with no rebuild and no restart. Left empty, the prompt comes
+    // from the packaged copy on the classpath instead.
+    @Value("${ai.prompt.file:}")
+    private String promptFilePath;
 
     @Override
     public boolean isAvailable() {
@@ -64,7 +71,11 @@ public class GroqNominationEvaluator implements NominationEvaluator {
 
     @Override
     public AiEvaluationResult evaluate(Nomination nomination) throws AiEvaluationException {
-        String prompt = promptTemplate
+        // Read per call rather than caching at startup. The file is ~3KB and this
+        // method is about to make a network request, so the read costs nothing
+        // measurable - and caching it was the reason an edited prompt appeared to
+        // do nothing until someone happened to restart.
+        String prompt = loadPromptTemplate()
                 .replace("{{WHAT_TEXT}}", nomination.getWhatText())
                 .replace("{{HOW_TEXT}}", nomination.getHowText());
 
@@ -156,7 +167,28 @@ public class GroqNominationEvaluator implements NominationEvaluator {
         }
     }
 
-    private String loadPromptTemplate() {
+    /**
+     * The prompt sent to the model. Prefers a file on disk when
+     * {@code ai.prompt.file} points at a readable one, so the wording can be
+     * changed and tested without rebuilding; otherwise falls back to the copy
+     * packaged on the classpath.
+     */
+    String loadPromptTemplate() {
+        if (promptFilePath != null && !promptFilePath.isBlank()) {
+            Path path = Path.of(promptFilePath.trim());
+            if (Files.isReadable(path)) {
+                try {
+                    return Files.readString(path, StandardCharsets.UTF_8);
+                } catch (IOException e) {
+                    log.warn("Couldn't read prompt file {} - falling back to the packaged prompt.",
+                            path, e);
+                }
+            } else {
+                log.warn("ai.prompt.file is set to {} but that file isn't readable - "
+                        + "using the packaged prompt instead.", path);
+            }
+        }
+
         try {
             byte[] bytes = new ClassPathResource("prompts/nomination-evaluation-" + PROMPT_VERSION + ".txt")
                     .getInputStream().readAllBytes();
@@ -166,10 +198,31 @@ public class GroqNominationEvaluator implements NominationEvaluator {
         }
     }
 
+    /** Where the active prompt is being read from, for the diagnostics endpoint. */
+    public String describePromptSource() {
+        if (promptFilePath != null && !promptFilePath.isBlank()
+                && Files.isReadable(Path.of(promptFilePath.trim()))) {
+            return "file: " + promptFilePath.trim();
+        }
+        return "classpath: prompts/nomination-evaluation-" + PROMPT_VERSION + ".txt";
+    }
+
     /** Minimal request shape (OpenAI-compatible) - just what this call needs, not a full SDK. */
     private static class GroqRequest {
         public final String model;
-        public final int max_tokens = 300;
+
+        // gpt-oss is a reasoning model: it spends completion tokens thinking
+        // before it writes anything. At 300 it burned 298 on reasoning and
+        // returned an empty answer with finish_reason "length" - which looked
+        // like a refusal but was simply running out of room. The JSON we want is
+        // ~120 tokens; the rest is headroom for the reasoning pass.
+        public final int max_tokens = 1500;
+
+        // Keep that reasoning brief. This is a rubric-scoring task with the
+        // criteria spelled out in the prompt, not a problem needing deep thought,
+        // and shorter reasoning means faster, cheaper and more consistent scores.
+        public final String reasoning_effort = "low";
+
         public final List<Message> messages;
 
         GroqRequest(String model, String prompt) {

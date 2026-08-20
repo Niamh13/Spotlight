@@ -2,6 +2,7 @@ package com.version1.recognition.nomination.check;
 
 import com.version1.recognition.nomination.AiFlag;
 import com.version1.recognition.nomination.Nomination;
+import com.version1.recognition.nomination.TaggingService;
 
 import java.util.List;
 import java.util.Optional;

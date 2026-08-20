@@ -11,7 +11,7 @@ package com.version1.recognition.nomination;
  */
 public enum FlagSource {
 
-    /** Produced by a {@link com.version1.recognition.nomination.check.NominationCheck}. */
+    /** Produced by a {@code NominationCheck}. */
     RULE,
 
     /** Produced by the Groq evaluator. */

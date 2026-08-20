@@ -2,12 +2,11 @@ package com.version1.recognition.nomination.check;
 
 import com.version1.recognition.nomination.AiFlag;
 import com.version1.recognition.nomination.Nomination;
+import com.version1.recognition.nomination.Quarter;
+
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -59,38 +58,4 @@ public class RepeatNominationCheck implements NominationCheck {
         return a != null && b != null && a.trim().equalsIgnoreCase(b.trim());
     }
 
-    /**
-     * A calendar quarter, in UTC. Pulled out as a value type because the
-     * roll-back-across-a-year-boundary arithmetic is the one part of this check
-     * that is easy to get subtly wrong.
-     */
-    private static final class Quarter {
-        private final int year;
-        private final int index;   // 0-3
-
-        private Quarter(int year, int index) {
-            this.year = year;
-            this.index = index;
-        }
-
-        static Quarter of(Instant instant) {
-            ZonedDateTime z = instant.atZone(ZoneOffset.UTC);
-            return new Quarter(z.getYear(), (z.getMonthValue() - 1) / 3);
-        }
-
-        Quarter previous() {
-            return index == 0 ? new Quarter(year - 1, 3) : new Quarter(year, index - 1);
-        }
-
-        boolean contains(Instant instant) {
-            ZonedDateTime start = ZonedDateTime.of(year, index * 3 + 1, 1, 0, 0, 0, 0, ZoneOffset.UTC);
-            Instant from = start.toInstant();
-            Instant toExclusive = start.plusMonths(3).toInstant();
-            return !instant.isBefore(from) && instant.isBefore(toExclusive);
-        }
-
-        String label() {
-            return "Q" + (index + 1) + " " + year;
-        }
-    }
 }

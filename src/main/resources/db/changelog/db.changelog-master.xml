@@ -18,4 +18,19 @@
     <!-- Flags gain a reason and a source (RULE vs AI) - see the changeset comments. -->
     <include file="db/changelog/006-add-flag-source-and-reason.xml" relativeToChangelogFile="false"/>
 
+    <!-- The five business categories a nomination is filed under. -->
+    <include file="db/changelog/007-add-award-category.xml" relativeToChangelogFile="false"/>
+
+    <!-- Audit entries gain a coordinator note and the message that was generated. -->
+    <include file="db/changelog/008-add-audit-comment-and-email.xml" relativeToChangelogFile="false"/>
+
+    <!-- Corrects demo data that predated the one-per-quarter rule. -->
+    <include file="db/changelog/009-rebalance-demo-quarters.xml" relativeToChangelogFile="false"/>
+
+    <!-- A decision can generate more than one message, so messages get their own table. -->
+    <include file="db/changelog/010-audit-comms-table.xml" relativeToChangelogFile="false"/>
+
+    <!-- Which of Version 1's six core values the nomination demonstrates. -->
+    <include file="db/changelog/011-add-core-value.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>

@@ -1,4 +1,7 @@
-package com.version1.recognition.nomination;
+package com.version1.recognition.nomination.web;
+
+import com.version1.recognition.nomination.AwardCategory;
+import com.version1.recognition.nomination.CoreValue;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -30,10 +33,16 @@ public class NominationRequest {
     @NotBlank(message = "Location is required")
     private String location;
 
+    @NotNull(message = "Category is required - pick the business category this nomination fits")
+    private AwardCategory category;
+
+    @NotNull(message = "Select the core value this nomination demonstrates")
+    private CoreValue coreValue;
+
     @NotBlank(message = "WHAT is required - describe the achievement, contribution, or action")
     private String whatText;
 
-    @NotBlank(message = "HOW is required - explain how this demonstrated a core value")
+    @NotBlank(message = "HOW is required - explain how the nominee demonstrated the value you selected")
     private String howText;
 
     // Set by the client when this submission is a resubmission of a rejected
@@ -86,6 +95,22 @@ public class NominationRequest {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public AwardCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(AwardCategory category) {
+        this.category = category;
+    }
+
+    public CoreValue getCoreValue() {
+        return coreValue;
+    }
+
+    public void setCoreValue(CoreValue coreValue) {
+        this.coreValue = coreValue;
     }
 
     public String getWhatText() {

@@ -2,6 +2,7 @@ package com.version1.recognition.nomination.check;
 
 import com.version1.recognition.nomination.AiFlag;
 import com.version1.recognition.nomination.Nomination;
+
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
