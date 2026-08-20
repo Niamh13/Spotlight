@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -38,16 +37,6 @@ public class WeakJustificationCheck implements NominationCheck {
 
     private static final int SHORT_THRESHOLD = 150;
     private static final Pattern CONTAINS_DIGIT = Pattern.compile("\\d");
-
-    // Distinctive words from each core value's name, used to spot whether the
-    // HOW is visibly about the value the nominator picked.
-    private static final Map<CoreValue, List<String>> VALUE_KEYWORDS = Map.of(
-            CoreValue.HONESTY_AND_INTEGRITY, List.of("honest", "integrity", "truthful", "transparent"),
-            CoreValue.PERSONAL_COMMITMENT, List.of("commit", "dependable", "reliable", "followed through", "saw it through"),
-            CoreValue.NO_EGO, List.of("ego", "credit", "owned", "own mistake", "shared the", "humble"),
-            CoreValue.CUSTOMER_FIRST, List.of("customer", "client"),
-            CoreValue.EXCELLENCE, List.of("excellence", "root cause", "no stone", "thorough", "rigorous", "quality"),
-            CoreValue.DRIVE, List.of("drive", "drove", "initiative", "unprompted", "off their own", "pushed"));
 
     @Override
     public AiFlag flag() {
@@ -83,9 +72,7 @@ public class WeakJustificationCheck implements NominationCheck {
         if (chosen == null) {
             failures.add("no core value was selected");
         } else {
-            List<String> keywords = VALUE_KEYWORDS.getOrDefault(chosen, List.of());
-            boolean touchesValue = keywords.stream().anyMatch(lower::contains);
-            if (!touchesValue) {
+            if (!chosen.isEvidencedIn(combined)) {
                 failures.add("the HOW never visibly connects to " + chosen.getLabel()
                         + ", the value the nominator selected");
             }

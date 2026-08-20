@@ -1,5 +1,7 @@
 package com.version1.recognition.nomination.web;
 
+import com.version1.recognition.nomination.CompletenessCriterion;
+import com.version1.recognition.nomination.CompletenessService;
 import com.version1.recognition.nomination.Nomination;
 import com.version1.recognition.nomination.NominationService;
 import com.version1.recognition.nomination.NominationStatus;
@@ -9,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -19,9 +22,12 @@ import java.util.stream.Collectors;
 public class NominationController {
 
     private final NominationService service;
+    private final CompletenessService completenessService;
 
-    public NominationController(NominationService service) {
+    public NominationController(NominationService service,
+                                 CompletenessService completenessService) {
         this.service = service;
+        this.completenessService = completenessService;
     }
 
     // Epic 1: submit a nomination (or a resubmission, if originalNominationId is set)
@@ -78,6 +84,39 @@ public class NominationController {
         return ResponseEntity.ok(Map.of(
                 "flaggedNominations", flagged,
                 "message", "Rule flags recomputed. AI flags were left untouched."));
+    }
+
+    /**
+     * The one-click completeness check (brief: "Completeness check, single
+     * click"). Returns every criterion with its pass/fail, plus a ready-made
+     * message listing what is missing - which the coordinator can send back as-is
+     * or edit.
+     */
+    @GetMapping("/{id}/completeness")
+    public ResponseEntity<Map<String, Object>> completeness(@PathVariable UUID id) {
+        Nomination nomination = service.findById(id);
+        Map<CompletenessCriterion, Boolean> assessed = completenessService.assess(nomination);
+
+        List<Map<String, Object>> criteria = assessed.entrySet().stream()
+                .map(e -> {
+                    Map<String, Object> row = new LinkedHashMap<String, Object>();
+                    row.put("criterion", e.getKey().name());
+                    row.put("label", e.getKey().getLabel());
+                    row.put("remedy", e.getKey().getRemedy());
+                    row.put("passed", e.getValue());
+                    return row;
+                })
+                .collect(Collectors.toList());
+
+        long failed = assessed.values().stream().filter(passed -> !passed).count();
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("complete", failed == 0);
+        body.put("passedCount", assessed.size() - failed);
+        body.put("totalCount", assessed.size());
+        body.put("criteria", criteria);
+        body.put("suggestedMessage", completenessService.toResubmissionMessage(nomination));
+        return ResponseEntity.ok(body);
     }
 
     // Audit and activity history view
