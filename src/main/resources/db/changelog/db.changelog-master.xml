@@ -7,7 +7,15 @@
 
     <include file="db/changelog/001-create-nominations-table.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/002-create-nomination-ai-flags-table.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/003-create-resubmission-requests-table.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/004-create-resubmission-request-criteria-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/003-create-nomination-audit-log-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/004-add-ai-evaluation-columns.xml" relativeToChangelogFile="false"/>
+
+    <!-- Demo data. Tagged context="demo", which application.properties turns on by
+         default so a fresh clone has a populated dashboard instead of an empty one.
+         Drop spring.liquibase.contexts to get schema without seed rows. -->
+    <include file="db/changelog/005-seed-demo-nominations.xml" relativeToChangelogFile="false"/>
+
+    <!-- Flags gain a reason and a source (RULE vs AI) - see the changeset comments. -->
+    <include file="db/changelog/006-add-flag-source-and-reason.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

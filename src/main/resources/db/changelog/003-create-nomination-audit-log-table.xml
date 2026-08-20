@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="003-create-nomination-audit-log-table" author="team">
+        <createTable tableName="nomination_audit_log">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="nomination_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="coordinator_email" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="action" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="CLOB"/>
+            <column name="occurred_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="nomination_audit_log"
+                baseColumnNames="nomination_id"
+                referencedTableName="nominations"
+                referencedColumnNames="id"
+                constraintName="fk_audit_log_nomination"/>
+
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="nomination_audit_log"
+                                       constraintName="fk_audit_log_nomination"/>
+            <dropTable tableName="nomination_audit_log"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

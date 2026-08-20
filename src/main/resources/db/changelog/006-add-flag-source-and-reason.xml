@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <!--
+        Flags used to be a bare enum per row. A coordinator seeing WEAK_JUSTIFICATION
+        learned that something tripped but not what, so they re-derived the judgement
+        by hand - at which point the flag had saved them nothing.
+
+        Two columns fix that:
+          reason - what the check actually found, in words
+          source - RULE or AI, which decides what a retag is allowed to overwrite.
+                   Rule flags are reproducible from current data; an AI flag records
+                   what a model said once and can't be regenerated, so retagging
+                   replaces the former and preserves the latter.
+    -->
+    <changeSet id="006-add-flag-source-and-reason" author="team">
+
+        <addColumn tableName="nomination_ai_flags">
+            <column name="reason" type="CLOB"/>
+            <!-- Existing rows all predate the AI-sourced flags, so RULE is the
+                 correct backfill as well as the sensible default. -->
+            <column name="source" type="VARCHAR(20)" defaultValue="RULE">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <rollback>
+            <dropColumn tableName="nomination_ai_flags" columnName="reason"/>
+            <dropColumn tableName="nomination_ai_flags" columnName="source"/>
+        </rollback>
+
+    </changeSet>
+
+    <!--
+        The seeded flags from changeset 005 were hand-written to illustrate the
+        dashboard, and carry no reason. Rather than invent prose for them here and
+        risk it drifting from what the checks actually say, they are removed: the
+        first retag - which runs on startup and after every submission - regenerates
+        them from the real checks, with real reasons.
+
+        Split into its own changeset so it can be rolled back independently of the
+        column addition above.
+    -->
+    <changeSet id="006-clear-handwritten-seed-flags" author="team" context="demo">
+        <delete tableName="nomination_ai_flags">
+            <where>nomination_id LIKE 'a10000%'</where>
+        </delete>
+        <rollback/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -14,11 +15,9 @@ import java.util.stream.Collectors;
 public class NominationController {
 
     private final NominationService service;
-    private final ResubmissionService resubmissionService;
 
-    public NominationController(NominationService service, ResubmissionService resubmissionService) {
+    public NominationController(NominationService service) {
         this.service = service;
-        this.resubmissionService = resubmissionService;
     }
 
     // Epic 1: submit a nomination (or a resubmission, if originalNominationId is set)
@@ -30,45 +29,59 @@ public class NominationController {
 
     @GetMapping("/{id}")
     public ResponseEntity<NominationResponse> getById(@PathVariable UUID id) {
-        Nomination nomination = service.findById(id);
-        return ResponseEntity.ok(
-                new NominationResponse(nomination, resubmissionService.evaluate(nomination)));
+        return ResponseEntity.ok(new NominationResponse(service.findById(id)));
     }
 
-    // Epic 6: backing endpoint for the dashboard - one row per nomination
+    // Epic 6 / reviewer dashboard: ?status=PENDING_REVIEW backs the review queue,
+    // no param backs the full dashboard.
     @GetMapping
-    public ResponseEntity<List<NominationResponse>> getAll() {
-        List<NominationResponse> all = service.findAll().stream()
-                .map(n -> new NominationResponse(n, resubmissionService.evaluate(n)))
+    public ResponseEntity<List<NominationResponse>> getAll(
+            @RequestParam(required = false) NominationStatus status) {
+        List<NominationResponse> all = service.findAll(status).stream()
+                .map(NominationResponse::new)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(all);
+    }
+
+    // Epic 3: coordinator actions
+    @PostMapping("/{id}/approve")
+    public ResponseEntity<NominationResponse> approve(@PathVariable UUID id,
+                                                        @Valid @RequestBody ApproveRequest request) {
+        return ResponseEntity.ok(new NominationResponse(service.approve(id, request)));
+    }
+
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<NominationResponse> reject(@PathVariable UUID id,
+                                                       @Valid @RequestBody ReviewDecisionRequest request) {
+        return ResponseEntity.ok(new NominationResponse(service.reject(id, request)));
+    }
+
+    @PostMapping("/{id}/request-resubmission")
+    public ResponseEntity<NominationResponse> requestResubmission(@PathVariable UUID id,
+                                                                    @Valid @RequestBody ReviewDecisionRequest request) {
+        return ResponseEntity.ok(new NominationResponse(service.requestResubmission(id, request)));
     }
 
     /**
-     * What the evaluation makes of this nomination. Read-only and side-effect
-     * free - it sends nothing, so a coordinator can look before asking.
+     * Forces a rule-flag pass over every nomination. Submitting already retags
+     * automatically; this exists for the case the rules themselves change, where
+     * nothing new has been submitted to trigger a pass but every existing answer
+     * may now be wrong.
      */
-    @GetMapping("/{id}/evaluation")
-    public ResponseEntity<EvaluationResponse> evaluation(@PathVariable UUID id) {
-        return ResponseEntity.ok(new EvaluationResponse(resubmissionService.evaluate(id)));
+    @PostMapping("/retag")
+    public ResponseEntity<Map<String, Object>> retag() {
+        int flagged = service.retagAll();
+        return ResponseEntity.ok(Map.of(
+                "flaggedNominations", flagged,
+                "message", "Rule flags recomputed. AI flags were left untouched."));
     }
 
-    /** Sends the nominator a request to complete the nomination. */
-    @PostMapping("/{id}/request-resubmission")
-    public ResponseEntity<ResubmissionRequestResponse> requestResubmission(
-            @PathVariable UUID id,
-            @Valid @RequestBody(required = false) RequestResubmissionRequest body) {
-        String coordinatorEmail = body == null ? null : body.getCoordinatorEmail();
-        ResubmissionRequest request = resubmissionService.requestResubmission(id, coordinatorEmail);
-        return ResponseEntity.status(HttpStatus.CREATED).body(new ResubmissionRequestResponse(request));
-    }
-
-    /** The audit trail: every resubmission request sent for this nomination. */
-    @GetMapping("/{id}/resubmission-requests")
-    public ResponseEntity<List<ResubmissionRequestResponse>> resubmissionRequests(@PathVariable UUID id) {
-        List<ResubmissionRequestResponse> all = resubmissionService.findRequestsFor(id).stream()
-                .map(ResubmissionRequestResponse::new)
+    // Audit and activity history view
+    @GetMapping("/{id}/audit-log")
+    public ResponseEntity<List<AuditLogEntryResponse>> getAuditLog(@PathVariable UUID id) {
+        List<AuditLogEntryResponse> entries = service.getAuditLog(id).stream()
+                .map(AuditLogEntryResponse::new)
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(all);
+        return ResponseEntity.ok(entries);
     }
 }

@@ -1,18 +1,16 @@
 package com.version1.recognition.nomination;
 
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 
-/**
- * Body for {@code POST /api/nominations/{id}/request-resubmission}.
- * <p>
- * Optional in full - the coordinator's identity comes from the logged-in user
- * once Epic 3 introduces accounts, so it's an explicit field only while there
- * is no auth.
- */
-public class RequestResubmissionRequest {
+public class ReviewDecisionRequest {
 
+    @NotBlank(message = "Coordinator email is required")
     @Email(message = "Coordinator email must be valid")
     private String coordinatorEmail;
+
+    @NotBlank(message = "A reason is required")
+    private String reason;
 
     public String getCoordinatorEmail() {
         return coordinatorEmail;
@@ -20,5 +18,13 @@ public class RequestResubmissionRequest {
 
     public void setCoordinatorEmail(String coordinatorEmail) {
         this.coordinatorEmail = coordinatorEmail;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
     }
 }

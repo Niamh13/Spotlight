@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star Awards — Reviewer Queue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="reviewer-dashboard.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">Skip to nominations</a>
+
+<header class="app-header">
+    <div class="app-header__inner">
+        <div class="brand">
+            <svg class="brand__star" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 1.8l2.9 6.6 7.1.7-5.4 4.8 1.6 7.1L12 17.6 5.8 21l1.6-7.1L2 9.1l7.1-.7z"/>
+            </svg>
+            <div>
+                <h1>Star Awards</h1>
+                <p class="brand__subtitle">Reviewer queue</p>
+            </div>
+        </div>
+        <p class="app-header__count" id="queue-count" aria-live="polite">Loading…</p>
+    </div>
+</header>
+
+<main id="main-content">
+
+    <section class="filters" aria-label="Filter nominations">
+        <div class="filters__field">
+            <label for="filter-practice">Practice</label>
+            <select id="filter-practice">
+                <option value="">All practices</option>
+            </select>
+        </div>
+        <div class="filters__field">
+            <label for="filter-location">Location</label>
+            <select id="filter-location">
+                <option value="">All locations</option>
+            </select>
+        </div>
+        <div class="filters__field">
+            <label for="filter-status">Status</label>
+            <select id="filter-status">
+                <option value="PENDING_REVIEW" selected>Pending review</option>
+                <option value="">All statuses</option>
+                <option value="APPROVED">Approved</option>
+                <option value="REJECTED">Rejected</option>
+                <option value="NEEDS_RESUBMISSION">Needs resubmission</option>
+            </select>
+        </div>
+        <button type="button" id="refresh-btn" class="btn btn--ghost">Refresh</button>
+    </section>
+
+    <div id="status-message" class="status-message" role="status" aria-live="polite" hidden></div>
+
+    <section aria-label="Nominations" id="nomination-list" class="nomination-list">
+        <p class="loading-state">Loading nominations…</p>
+    </section>
+
+    <template id="nomination-card-template">
+        <article class="nomination-card">
+            <header class="nomination-card__header">
+                <div class="nomination-card__title">
+                    <svg class="star-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 1.8l2.9 6.6 7.1.7-5.4 4.8 1.6 7.1L12 17.6 5.8 21l1.6-7.1L2 9.1l7.1-.7z"/>
+                    </svg>
+                    <h2 class="nominee-name"></h2>
+                </div>
+                <span class="status-pill"><span class="sr-only">Status: </span><span class="status-pill__text"></span></span>
+            </header>
+
+            <dl class="nomination-card__meta">
+                <div><dt>Nominated by</dt><dd class="nominator-name"></dd></div>
+                <div><dt>Practice</dt><dd class="practice"></dd></div>
+                <div><dt>Location</dt><dd class="location"></dd></div>
+                <div><dt>Submitted</dt><dd class="submitted-at"></dd></div>
+            </dl>
+
+            <div class="nomination-card__flags" hidden>
+                <h3 class="sr-only">AI review flags</h3>
+                <ul class="flag-list"></ul>
+            </div>
+
+            <div class="nomination-card__ai-assessment" hidden>
+                <h3>AI assessment <span class="ai-assessment__prompt-version"></span></h3>
+                <p class="ai-assessment__score"></p>
+                <p class="ai-assessment__rationale"></p>
+            </div>
+
+            <div class="nomination-card__ai-unavailable" hidden>
+                <p>AI review unavailable for this nomination — showing rule-based flags only. A coordinator can still review normally.</p>
+            </div>
+
+            <div class="nomination-card__body">
+                <div>
+                    <h3>What</h3>
+                    <p class="what-text"></p>
+                </div>
+                <div>
+                    <h3>How</h3>
+                    <p class="how-text"></p>
+                </div>
+            </div>
+
+            <div class="nomination-card__decision-info" hidden>
+                <p class="reason-text"></p>
+            </div>
+
+            <div class="nomination-card__actions">
+                <button type="button" class="btn btn--approve" data-action="approve">Approve</button>
+                <button type="button" class="btn btn--reject" data-action="reject">Reject</button>
+                <button type="button" class="btn btn--resubmit" data-action="request-resubmission">Request resubmission</button>
+            </div>
+
+            <form class="reason-form" hidden>
+                <label class="reason-form__label"></label>
+                <textarea class="reason-form__input" rows="3" required></textarea>
+                <div class="reason-form__actions">
+                    <button type="submit" class="btn btn--primary">Confirm</button>
+                    <button type="button" class="btn btn--ghost reason-form__cancel">Cancel</button>
+                </div>
+            </form>
+
+            <details class="audit-history">
+                <summary>Activity history</summary>
+                <div class="audit-history__content">
+                    <p class="audit-history__loading">Loading history…</p>
+                </div>
+            </details>
+        </article>
+    </template>
+
+</main>
+
+<script src="reviewer-dashboard.js"></script>
+</body>
+</html>
