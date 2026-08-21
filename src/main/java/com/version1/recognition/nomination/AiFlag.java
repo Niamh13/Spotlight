@@ -1,9 +1,8 @@
 package com.version1.recognition.nomination;
 
 /**
- * Advisory flags the AI tagging step (Epic 2) can attach to a nomination.
- * These are shown to the coordinator alongside the nomination - they never
- * block submission and never decide approve/reject on their own.
+ * Advisory flags attached to a nomination by the rules or the AI. Shown to the
+ * coordinator; they never block a submission or decide an outcome.
  */
 public enum AiFlag {
     NOMINEE_NOT_ACTIVE_EMPLOYEE,
@@ -13,9 +12,9 @@ public enum AiFlag {
     RECIPROCAL_NOMINATION,
 
     /**
-     * Nominator and nominee are the same person. Submission already blocks this
-     * on an exact email match, so a flag here means the pair matched some other
-     * way - same name, different address - or the row predates that check.
+     * Nominator and nominee are the same person. Submission already rejects an
+     * exact email match, so this flag means they matched some other way - same
+     * name on a different address, usually.
      */
     SELF_NOMINATION
 }

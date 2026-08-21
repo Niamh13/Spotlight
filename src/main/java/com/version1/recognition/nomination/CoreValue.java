@@ -62,16 +62,13 @@ public enum CoreValue {
     }
 
     /**
-     * Words that suggest a piece of text is actually arguing for this value.
-     * A blunt signal - a good HOW can evidence No Ego without using the word -
-     * so anything using it says so and stays advisory. Kept here rather than in
-     * the checks so the tagging rules and the completeness check agree.
+     * True if the text visibly touches on this value.
+     *
+     * <p>A blunt signal: a good write-up can evidence No Ego without ever using
+     * the word, so callers treat a "no" as worth mentioning rather than proof of
+     * anything. It lives here so the tagging rule and the completeness check
+     * ask the question the same way.
      */
-    public List<String> getKeywords() {
-        return keywords;
-    }
-
-    /** True if the given text visibly touches on this value. */
     public boolean isEvidencedIn(String text) {
         if (text == null || text.isBlank()) {
             return false;
