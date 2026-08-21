@@ -36,7 +36,10 @@ public class NominationRequest {
     @NotNull(message = "Category is required - pick the business category this nomination fits")
     private AwardCategory category;
 
-    @NotNull(message = "Select the core value this nomination demonstrates")
+    // Optional. The form asks for the value in the HOW text rather than from a
+    // dropdown, so this normally arrives null and the service works it out from
+    // what was written. Kept on the DTO so an API client can still state it
+    // outright if it knows.
     private CoreValue coreValue;
 
     @NotBlank(message = "WHAT is required - describe the achievement, contribution, or action")

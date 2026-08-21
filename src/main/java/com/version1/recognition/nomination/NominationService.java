@@ -68,7 +68,7 @@ public class NominationService {
                 request.getPractice(),
                 request.getLocation(),
                 request.getCategory(),
-                request.getCoreValue(),
+                resolveCoreValue(request),
                 request.getWhatText(),
                 request.getHowText(),
                 request.getOriginalNominationId()
@@ -85,6 +85,24 @@ public class NominationService {
         taggingService.retagAll();
 
         return repository.findById(saved.getId()).orElse(saved);
+    }
+
+    /**
+     * The value the nomination claims.
+     *
+     * <p>The form no longer offers a dropdown - nominators name the value in the
+     * HOW, in their own words - so this reads it back out of the text. Recording
+     * it keeps per-value reporting working without making anyone pick from a
+     * list before they have written anything.
+     *
+     * <p>An explicit value on the request still wins, for API clients that know
+     * what they mean.
+     */
+    private CoreValue resolveCoreValue(NominationRequest request) {
+        if (request.getCoreValue() != null) {
+            return request.getCoreValue();
+        }
+        return CoreValue.detectIn(request.getHowText()).orElse(null);
     }
 
     /**

@@ -28,13 +28,10 @@ public enum CompletenessCriterion {
             "The HOW explains the behaviour, not just the task",
             "Describe how they went about it, not only what was delivered."),
 
-    HOW_EVIDENCES_VALUE(
-            "The HOW connects to the core value selected",
-            "Tie the behaviour to the value chosen, with a specific example rather than a general statement."),
-
-    VALUE_SELECTED(
-            "A core value is named",
-            "Pick the Version 1 core value this contribution best demonstrates."),
+    HOW_NAMES_VALUE(
+            "The HOW names a core value",
+            "Say which of the six Version 1 core values this shows - Honesty & Integrity, Personal "
+                    + "Commitment, No Ego, Customer First, Excellence or Drive - and give an example of it."),
 
     CATEGORY_SELECTED(
             "A business category is chosen",

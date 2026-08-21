@@ -79,13 +79,12 @@ public class CompletenessService {
 
         results.put(CompletenessCriterion.HOW_HAS_DETAIL, how.length() >= HOW_MIN_CHARS);
 
-        CoreValue value = nomination.getCoreValue();
-        results.put(CompletenessCriterion.VALUE_SELECTED, value != null);
-        // Read both fields. Nominators often describe the behaviour in the WHAT
-        // and name the value in the HOW; insisting it all appear in the HOW
-        // failed nominations that plainly did evidence the value.
-        results.put(CompletenessCriterion.HOW_EVIDENCES_VALUE,
-                value != null && value.isEvidencedIn(what + " " + how));
+        // The HOW only, deliberately. Reading the WHAT as well made this pass on
+        // a nomination whose HOW named nothing, because the WHAT happened to
+        // mention a client - and it disagreed with the value actually recorded,
+        // which is read from the HOW. One question, one field.
+        results.put(CompletenessCriterion.HOW_NAMES_VALUE,
+                CoreValue.detectIn(how).isPresent());
 
         results.put(CompletenessCriterion.CATEGORY_SELECTED, nomination.getCategory() != null);
 

@@ -62,20 +62,13 @@ public class WeakJustificationCheck implements NominationCheck {
                     + "of the impact");
         }
 
-        // Now that the value is picked from a list, "did they name a value" is
-        // answered by the form. The useful question is whether the HOW actually
-        // argues for the value chosen, or just sits next to it. This is a blunt
-        // proxy - a good HOW can evidence No Ego without using the word - so the
-        // matched-or-not reasoning is spelled out in the message and a
-        // coordinator can dismiss it at a glance.
-        CoreValue chosen = nomination.getCoreValue();
-        if (chosen == null) {
-            failures.add("no core value was selected");
-        } else {
-            if (!chosen.isEvidencedIn(combined)) {
-                failures.add("the HOW never visibly connects to " + chosen.getLabel()
-                        + ", the value the nominator selected");
-            }
+        // The form asks for the value in prose, so this asks whether the
+        // write-up names one at all. A blunt proxy - someone can describe No Ego
+        // perfectly without using the phrase - so the reason says exactly what
+        // was looked for and a coordinator can wave it through.
+        if (CoreValue.detectIn(combined).isEmpty()) {
+            failures.add("it names none of the six core values, and nothing in the wording "
+                    + "clearly points at one");
         }
 
         if (failures.size() < 2) {

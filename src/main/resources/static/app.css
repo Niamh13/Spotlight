@@ -872,3 +872,25 @@ pre.log .no { color: var(--critical); font-weight: 600; }
 .checkitem__remedy {
   display: block; font-size: 12.5px; color: var(--ink-2); margin-top: 3px;
 }
+
+/* ---------------- core value reference list ---------------- */
+/* Sits under the HOW box rather than being a dropdown above it. The point is
+   that the nominator names the value in their own words, so this is reference
+   material, styled to be scannable but not to look like an input. */
+.valueguide {
+  border: 1px solid var(--border); border-radius: 11px;
+  background: var(--surface-2); padding: 13px 15px; margin: -4px 0 16px;
+}
+.valueguide__head {
+  font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin-bottom: 10px;
+}
+.valueguide__list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 18px;
+}
+.valueguide__item { font-size: 12.5px; line-height: 1.45; }
+.valueguide__item b { display: block; color: var(--ink); }
+.valueguide__hint { color: var(--ink-2); }
+@media (max-width: 1180px) {
+  .valueguide__list { grid-template-columns: 1fr; }
+}

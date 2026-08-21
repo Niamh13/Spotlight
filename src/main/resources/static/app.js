@@ -91,7 +91,7 @@
   };
 
   var FIELDS = ["nominatorName", "nominatorEmail", "nomineeName", "nomineeEmail",
-                "practice", "location", "category", "coreValue", "whatText", "howText",
+                "practice", "location", "category", "whatText", "howText",
                 "originalNominationId"];
 
   var AV_COLORS = ["#6C4BD8", "#0F9E8E", "#C2410C", "#2a78d6", "#B0448F", "#0f766e"];
@@ -641,8 +641,8 @@
             '<option value="Pune"></option></datalist>' +
 
           areaField("whatText", "WHAT — the achievement, contribution or action") +
-          coreValueField() +
-          areaField("howText", "HOW — how they demonstrated that value") +
+          areaField("howText", "HOW — which core value they showed, and how") +
+          coreValueGuide() +
 
           (openForRevision
             ? '<div class="notice" style="border-style:solid;border-color:' +
@@ -789,24 +789,24 @@
       '<div class="err"></div></div>';
   }
 
-  /* The core value, picked from a list rather than left to the prose.
-     It sits directly above the HOW because it sets the question that box has to
-     answer: "how did they show Personal Commitment?" is a far easier thing to
-     write well than "how did they demonstrate a core value?", which is what
-     produced most of the vague HOW text in the first place. */
-  function coreValueField() {
-    var opts = store.coreValues.map(function (v) {
-      return '<option value="' + esc(v.value) + '">' + esc(v.label) + "</option>";
+  /* The six core values, listed under the HOW box for reference rather than
+     offered as a dropdown.
+
+     A picker asks people to categorise before they have written anything, which
+     tends to produce a selection that the HOW then never argues for. Listing
+     them here keeps the value in the nominator's own words, where a coordinator
+     can see the reasoning. The value is still recorded - the service reads it
+     back out of the text - so per-value reporting is unaffected. */
+  function coreValueGuide() {
+    var items = store.coreValues.map(function (v) {
+      return '<li class="valueguide__item"><b>' + esc(v.label) + "</b>" +
+        '<span class="valueguide__hint">' + esc(v.prompt) + "</span></li>";
     }).join("");
 
-    return '<div class="field" data-field="coreValue">' +
-      '<label for="coreValue">Which core value did they demonstrate? ' +
-      '<span class="req">*</span></label>' +
-      '<select id="coreValue"><option value="">Select a core value…</option>' + opts + "</select>" +
-      '<p class="field__hint" id="coreValueHint">' +
-      "Version 1's six core values. Pick the one this contribution best shows — " +
-      "then explain how underneath.</p>" +
-      '<div class="err"></div></div>';
+    return '<div class="valueguide">' +
+      '<div class="valueguide__head">Name one of these in your HOW, and say how they showed it</div>' +
+      '<ul class="valueguide__list">' + items + "</ul>" +
+      "</div>";
   }
 
   function field(id, label, type, list) {
@@ -1691,7 +1691,7 @@
         metaCell("Nominated by", n.nominatorName + " · " + (n.nominatorEmail || "—")) +
         metaCell("Nominee", n.nomineeName + " · " + (n.nomineeEmail || "—")) +
         metaCell("Category", categoryLabel(n) || "Uncategorised") +
-        metaCell("Core value", n.coreValueLabel || "—") +
+        metaCell("Core value", n.coreValueLabel || "not identified") +
         metaCell("Practice", n.practice) + metaCell("Location", n.location) +
         metaCell("Submitted", fmtDate(n.submittedAt)) +
         metaCell("Decision date", fmtDate(n.decisionDate)) +
@@ -2332,7 +2332,20 @@
   }
 
   function wire(r) {
-    if (r === "submit") wireForm();
+    if (r === "submit") {
+      wireForm();
+      // The form is drawn from cached quarter state. Refresh it on arrival in
+      // case it moved elsewhere - another tab, or a coordinator sending this
+      // nomination back - and re-render only if the answer actually changed,
+      // which keeps this from looping.
+      var wasSubmitted = !!(store.quarter && store.quarter.hasSubmitted);
+      loadQuarter().then(function () {
+        var nowSubmitted = !!(store.quarter && store.quarter.hasSubmitted);
+        if (route() === "submit" && wasSubmitted !== nowSubmitted) {
+          render();
+        }
+      });
+    }
     if (r === "mine" || r === "stars" || r === "queue") wireList();
     if (r === "activity") {
       loadActivity().then(function () {
@@ -2447,36 +2460,6 @@
     $("#nominatorName").value = p.name;
     $("#nominatorEmail").value = p.email;
 
-    var valSelect = $("#coreValue");
-    if (valSelect) {
-      valSelect.addEventListener("change", function () {
-        var chosen = store.coreValues.filter(function (v) {
-          return v.value === valSelect.value;
-        })[0];
-
-        var howLabel = $('label[for="howText"]');
-        var howBox = $("#howText");
-        if (chosen) {
-          $("#coreValueHint").textContent = chosen.prompt;
-          if (howLabel) {
-            howLabel.innerHTML = "HOW — how they demonstrated " + esc(chosen.label) +
-              ' <span class="req">*</span>';
-          }
-          if (howBox) {
-            howBox.placeholder = "Give a specific example of " + chosen.label +
-              " in action. What did they actually do, and what changed as a result?";
-          }
-        } else {
-          $("#coreValueHint").textContent = "Version 1's six core values. Pick the one " +
-            "this contribution best shows — then explain how underneath.";
-          if (howLabel) {
-            howLabel.innerHTML = 'HOW — how they demonstrated that value <span class="req">*</span>';
-          }
-          if (howBox) { howBox.placeholder = ""; }
-        }
-      });
-    }
-
     var catSelect = $("#category");
     if (catSelect) {
       catSelect.addEventListener("change", function () {
@@ -2503,7 +2486,6 @@
     function fill(v) {
       Object.keys(v).forEach(function (k) { if ($("#" + k)) $("#" + k).value = v[k]; });
       if (catSelect) catSelect.dispatchEvent(new Event("change"));
-      if (valSelect) valSelect.dispatchEvent(new Event("change"));
     }
 
     $("#sampleBtn").addEventListener("click", function () {
@@ -2512,7 +2494,6 @@
              nomineeName: "Alex Rivera", nomineeEmail: "alex.rivera@version1.com",
              practice: "Cloud Engineering", location: "Dublin",
              category: "CUSTOMER_IMPACT",
-             coreValue: "NO_EGO",
              whatText: "Led the release rollout over a tight weekend window and saved the client " +
                        "two full days of downtime, coordinating four teams across two time zones.",
              howText: "Collaboration and Excellence. Rather than working the weekend alone, Alex " +
@@ -2526,7 +2507,6 @@
              nomineeName: p.name, nomineeEmail: p.email,
              practice: "Cloud Engineering", location: "Dublin",
              category: "PERFORMANCE_AND_EFFICIENCY",
-             coreValue: "DRIVE",
              whatText: "Kept the release on track.", howText: "Showed ownership throughout." });
     });
 
@@ -2576,13 +2556,12 @@
               title: "Nomination submitted",
               msg: res.body.nomineeName + " is now in the coordinator's review queue."
             });
-            form.reset();
-            $("#nominatorName").value = p.name;
-            $("#nominatorEmail").value = p.email;
-            $("#resubWrap").hidden = true;
-            return Promise.all([loadNominations(), loadQuarter()]).then(function () {
-              renderNav(route().split("/")[0]);
-            });
+            // Re-render, don't just refresh the nav. The quarter's nomination
+            // is now used, so this screen has to become the "you've nominated"
+            // panel - leaving the form up invites a second attempt the server
+            // will only reject.
+            return Promise.all([loadNominations(), loadQuarter(), loadQuarterHistory()])
+              .then(function () { render(); });
           }
           if (res.body && res.body.reason === "QUARTER_LIMIT") {
             // Re-read and re-render so the form is replaced by the "already
