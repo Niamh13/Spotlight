@@ -219,6 +219,9 @@
     personaId = PERSONAS.filter(function (p) { return p.id === saved; }).length ? saved : PERSONAS[0].id;
   }
 
+  /* Switches profile. Reloads the quarter status first - "have you used your
+     nomination?" is per person - then re-renders, landing on Home if the new
+     role can't see the current screen. */
   function setPersona(id, announce) {
     var before = persona();
     personaId = id;
@@ -412,13 +415,6 @@
     window.setTimeout(dismiss, opts.sticky ? 12000 : 6000);
   }
 
-  /* ================= request log =================
-     Kept as a no-op rather than deleted: the call sites read as a running
-     narrative of what the page does, and losing them would make the fetch
-     code harder to follow. Nothing is rendered to the user.
-     ============================================== */
-
-  function logCall() { /* intentionally silent */ }
 
   /* ================= data ================= */
 
@@ -506,7 +502,6 @@
   function loadNominations() {
     return fetch(API)
       .then(function (r) {
-        logCall("GET", "/api/nominations", r.status);
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       })
@@ -1063,6 +1058,8 @@
       "</div>";
   };
 
+  /* Score distribution as a single stacked bar. Every band carries its count
+     and label, so the reading never depends on telling the colours apart. */
   function triageBands(low, mid, high) {
     var total = low.length + mid.length + high.length;
     if (!total) return '<p class="muted">Nothing scored yet.</p>';
@@ -1155,6 +1152,9 @@
         : '<div class="card"><div class="empty">No nominations on record yet.</div></div>');
   };
 
+  /* One quarter, collapsed unless it's the current one. Past quarters are
+     usually answered by the summary line; the names only matter when you go
+     looking. */
   function quarterCard(q) {
     var open = q.isCurrent ? " open" : "";
     var people = (q.nominators || []).slice().sort(function (a, b) {
@@ -1477,6 +1477,9 @@
 
   /* Multi-line trend: 3 series is categorical (identity), so each keeps its own
      validated hue. Direct end-labels only — no number on every point. */
+  /* Hand-drawn SVG line chart. Three series, each with its own hue and a
+     label at the line end rather than a separate legend to cross-reference.
+     Sample data - there's no praise or MtM backend to chart. */
   function trendChart() {
     var W = 560, H = 220, PL = 38, PR = 96, PT = 14, PB = 30;
     var max = 560;
@@ -1636,7 +1639,6 @@
 
     fetch(API + "/" + id)
       .then(function (res) {
-        logCall("GET", "/api/nominations/" + id.slice(0, 8) + "…", res.status);
         return res.json().then(function (b) { return { ok: res.ok, body: b }; });
       })
       .then(function (res) {
@@ -1652,6 +1654,9 @@
       });
   }
 
+  /* The expanded record under a table row. What a coordinator sees here is
+     quite different from what an employee sees - AI assessment, decision
+     buttons and history are all coordinator-only. */
   function renderDetail(n) {
     var d = $("#detail");
     if (!d) return;
@@ -1802,6 +1807,9 @@
     return isCoordinator();
   }
 
+  /* The AI assessment. Handles three cases: a real score, no score because
+     the call failed, and no score on an older row saved before empty
+     responses were treated as failures. */
   function aiPanel(n) {
     var flags = flagList(n.aiFlags);
 
@@ -1846,6 +1854,9 @@
       flags + "</div>";
   }
 
+  /* Decision buttons, or an explanation of why there aren't any. A nomination
+     can only be decided once - the API enforces it, and this says so rather
+     than offering buttons that would 409. */
   function actionBar(n) {
     if (n.status !== "PENDING_REVIEW") {
       return '<div class="actionbar"><span class="actionbar__label">' +
@@ -1879,6 +1890,9 @@
       "</form>";
   }
 
+  /* Attaches the decision buttons. Approve opens the same form as the other
+     two but with the reason box hidden, so a note can still be attached
+     without one being demanded. */
   function wireActions(n) {
     var pendingAct = null;
 
@@ -2014,6 +2028,9 @@
     });
   }
 
+  /* Sends the decision, then reloads and reopens the same record so the
+     coordinator sees it land. Without the reopen you get dropped back to an
+     unchanged-looking table and can't tell whether it worked. */
   function submitDecision(n, action, reason, comment) {
     var body = { coordinatorEmail: persona().email };
     if (reason) body.reason = reason;
@@ -2029,7 +2046,6 @@
       body: JSON.stringify(body)
     })
       .then(function (r) {
-        logCall("POST", "/api/nominations/" + n.id.slice(0, 8) + "…/" + action, r.status);
         return r.json().then(function (b) { return { ok: r.ok, body: b }; })
                        .catch(function () { return { ok: r.ok, body: {} }; });
       })
@@ -2071,10 +2087,11 @@
       });
   }
 
+  /* Decision history for one nomination, including the messages each decision
+     generated. Coordinator-only - it names who did what. */
   function loadAudit(id) {
     fetch(API + "/" + id + "/audit-log")
       .then(function (r) {
-        logCall("GET", "/api/nominations/" + id.slice(0, 8) + "…/audit-log", r.status);
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       })
@@ -2250,6 +2267,8 @@
     closeDetail();
   }
 
+  /* Table wiring: row clicks, the status tabs, the category/practice/location
+     filters, and the clickable KPI tiles on the review queue. */
   function wireList() {
     currentFilter = null;
     currentCategory = "";
@@ -2433,8 +2452,6 @@
                          .catch(function () { return { status: r.status, ok: r.ok, body: {} }; });
         })
         .then(function (res) {
-          logCall("POST", "/api/nominations", res.status,
-                  res.ok ? "created" : "rejected by validation");
           if (res.ok) {
             $("#okText").innerHTML = "Star Award submitted — <code>" + esc(res.body.id) + "</code>";
             $("#okBanner").className = "banner ok show";

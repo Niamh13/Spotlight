@@ -9,32 +9,19 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 /**
- * Picks which evaluator actually runs, so the application works on a fresh
- * clone with no configuration at all.
- * <p>
- * The problem this solves: the Groq key can't live in the repository, so anyone
- * cloning this starts without one. Wiring Groq in unconditionally meant every
- * nomination they submitted came back {@code SKIPPED_NO_API_KEY} with no score,
- * and the AI Review screen sat empty - which looks like a broken build rather
- * than an absent credential.
- * <p>
- * So: if a Groq key is present, use Groq. If not, fall back to the mock
- * evaluator, which needs nothing and still produces scores, rationales and
- * flags. A cloner gets a working, demonstrable application immediately, and
- * gets the real thing the moment they export {@code GROQ_API_KEY}.
+ * Decides which evaluator runs: Groq if a key is configured, the mock if not.
  *
- * <h2>Overriding</h2>
- * {@code ai.evaluator} controls this:
- * <ul>
- *   <li>{@code auto} (default) - Groq if a key is configured, mock otherwise</li>
- *   <li>{@code groq} - always Groq; nominations report the evaluation as
- *       skipped if no key is set, rather than quietly using the mock</li>
- *   <li>{@code mock} - always the mock, even when a key is available. Useful in
- *       tests and demos where an outbound call would be slow or non-deterministic</li>
- * </ul>
- * Marked {@link Primary} so it is what gets injected wherever a
- * {@link NominationEvaluator} is asked for; the two concrete evaluators remain
- * available as beans in their own right.
+ * <p>The key can't live in the repository, so anyone cloning this starts
+ * without one. Before this existed, that meant every nomination came back
+ * SKIPPED_NO_API_KEY with no score and an empty AI Review screen - which reads
+ * as a broken build rather than a missing credential. Falling back to the mock
+ * means a fresh clone works immediately and gets the real model the moment a
+ * key appears.
+ *
+ * <p>{@code ai.evaluator} overrides the choice: {@code auto} (default),
+ * {@code groq} to force the real one, {@code mock} to force the offline one
+ * even when a key exists - handy for tests, where a network call would be slow
+ * and non-deterministic.
  */
 @Component
 @Primary
@@ -55,10 +42,9 @@ public class EvaluatorSelector implements NominationEvaluator {
     }
 
     /**
-     * Resolved per call rather than cached at startup. The key is read through a
-     * property placeholder, and holding on to a decision made before the context
-     * finished refreshing is the kind of thing that works locally and confuses
-     * everyone later.
+     * Resolved per call, not cached. The key arrives via a property placeholder,
+     * and pinning the decision before the context has finished refreshing is the
+     * sort of thing that works on your machine and puzzles everyone else.
      */
     private NominationEvaluator active() {
         if ("mock".equals(mode)) {
@@ -71,9 +57,9 @@ public class EvaluatorSelector implements NominationEvaluator {
     }
 
     /**
-     * True whenever something can evaluate. In {@code auto} mode that is always,
-     * because the mock needs nothing - which is the point: a missing key stops
-     * being an error condition and becomes a downgrade.
+     * True whenever something can evaluate - in {@code auto} mode, always,
+     * because the mock needs nothing. That's the point: a missing key becomes a
+     * downgrade rather than an error.
      */
     @Override
     public boolean isAvailable() {

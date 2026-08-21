@@ -2,13 +2,18 @@ package com.version1.recognition.nomination;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
+/**
+ * Nomination storage.
+ *
+ * <p>Bare on purpose. The rules that compare nominations against each other
+ * (reciprocal, repeat-quarter, one-per-quarter) all need the whole set, so they
+ * take it as a parameter instead of each running its own query - which also
+ * makes them testable without a database.
+ *
+ * <p>The cost is that those paths load every row. Fine now; see the note on
+ * TaggingService.retagAll for why it won't be at volume.
+ */
 public interface NominationRepository extends JpaRepository<Nomination, UUID> {
-
-    List<Nomination> findByNomineeEmailAndSubmittedAtBetween(String nomineeEmail, Instant start, Instant endExclusive);
-
-    boolean existsByNominatorEmailAndNomineeEmail(String nominatorEmail, String nomineeEmail);
 }

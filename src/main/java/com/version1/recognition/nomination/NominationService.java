@@ -87,6 +87,12 @@ public class NominationService {
         return repository.findById(saved.getId()).orElse(saved);
     }
 
+    /**
+     * Runs the rules, then the AI. The rules always run - they're local and
+     * can't fail. The AI is best-effort: if it's unavailable or errors, the
+     * nomination still reaches the coordinator with its rule flags and a visible
+     * "unavailable" status, never blocked.
+     */
     private void evaluate(Nomination nomination) {
         List<NominationFlag> flags = new ArrayList<>(
                 taggingService.tag(nomination, repository.findAll()));
@@ -133,6 +139,11 @@ public class NominationService {
         return taggingService.retagAll();
     }
 
+    /**
+     * Approves a nomination and sends both messages: a confirmation to the
+     * nominator, and the award itself to the nominee with the nomination quoted
+     * in full.
+     */
     public Nomination approve(UUID id, ApproveRequest request) {
         Nomination nomination = requirePendingReview(id);
 
@@ -162,6 +173,11 @@ public class NominationService {
         // the campaign send here once approved, before or after comms.
     }
 
+    /**
+     * Rejects a nomination. The reason is mandatory and goes to the nominator -
+     * only the nominator. Telling a nominee their nomination was turned down
+     * helps nobody.
+     */
     public Nomination reject(UUID id, ReviewDecisionRequest request) {
         Nomination nomination = requirePendingReview(id);
 
@@ -184,6 +200,11 @@ public class NominationService {
         return repository.save(nomination);
     }
 
+    /**
+     * Sends a nomination back for more detail. Distinct from rejection: the
+     * nominator is expected to revise and resubmit, and doing so doesn't use up
+     * another of their quarterly nominations.
+     */
     public Nomination requestResubmission(UUID id, ReviewDecisionRequest request) {
         Nomination nomination = requirePendingReview(id);
 

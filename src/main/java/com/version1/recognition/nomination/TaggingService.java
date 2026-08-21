@@ -11,25 +11,26 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Runs every {@link NominationCheck} over a nomination and collects whatever
- * flags come back.
- * <p>
- * There is no logic here beyond "run them all" - that is the point of the
- * pattern. Spring injects every {@code NominationCheck} bean on the classpath,
- * so a seventh rule is a seventh class and no edit to this file.
+ * Runs every {@link NominationCheck} and collects the flags.
  *
- * <h2>Why retagging exists</h2>
- * Two of the checks - reciprocal and repeat - depend on the <em>other</em>
- * nominations on record, so their answer changes as new ones arrive. If A
- * nominates B on Monday and B nominates A on Tuesday, tagging only at submission
- * time would flag Tuesday's nomination and leave Monday's clean, which is
- * exactly backwards from what a coordinator needs to see. So a submission
- * retags everything, not just itself.
- * <p>
- * Retagging replaces {@link FlagSource#RULE} flags and preserves
- * {@link FlagSource#AI} ones: rule flags are reproducible from current data,
- * whereas an AI flag is a record of what a model said once and cannot be
- * regenerated.
+ * <p>No logic here beyond "run them all" - that's the point. Spring injects
+ * every check it finds, so a seventh rule means a seventh class and no edit
+ * here.
+ *
+ * <p><b>Why a submission retags everything.</b> Reciprocal and repeat-quarter
+ * depend on the other nominations, so their answer changes as new ones arrive.
+ * If A nominates B on Monday and B nominates A on Tuesday, tagging only the new
+ * one would flag Tuesday's and leave Monday's clean - backwards from what a
+ * coordinator needs to see.
+ *
+ * <p>Retagging replaces RULE flags and keeps AI ones. Rule flags can be
+ * recalculated; an AI flag is what a model said once and can't be reproduced.
+ *
+ * <p><b>Known limit.</b> retagAll is O(n²) - every nomination checked against
+ * every other - and it runs on every submission. Fine at demo scale, not fine
+ * at the ~300/week the brief describes. The fix is to retag only what could
+ * have changed (the other half of a reciprocal pair, the same nominee's
+ * previous quarter) rather than the whole table.
  */
 @Service
 public class TaggingService {
@@ -67,11 +68,11 @@ public class TaggingService {
     }
 
     /**
-     * Recomputes rule flags for every nomination on record. Called after each
-     * submission, and exposed to coordinators so they can force a pass after the
-     * rules themselves change.
+     * Recomputes rule flags across every nomination. Runs after each submission,
+     * and is exposed to coordinators for the case where the rules themselves
+     * changed and nothing new has been submitted to trigger a pass.
      *
-     * @return how many nominations came out carrying at least one rule flag
+     * @return how many nominations ended up with at least one rule flag
      */
     @Transactional
     public int retagAll() {

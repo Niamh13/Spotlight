@@ -198,14 +198,6 @@ public class GroqNominationEvaluator implements NominationEvaluator {
         }
     }
 
-    /** Where the active prompt is being read from, for the diagnostics endpoint. */
-    public String describePromptSource() {
-        if (promptFilePath != null && !promptFilePath.isBlank()
-                && Files.isReadable(Path.of(promptFilePath.trim()))) {
-            return "file: " + promptFilePath.trim();
-        }
-        return "classpath: prompts/nomination-evaluation-" + PROMPT_VERSION + ".txt";
-    }
 
     /** Minimal request shape (OpenAI-compatible) - just what this call needs, not a full SDK. */
     private static class GroqRequest {

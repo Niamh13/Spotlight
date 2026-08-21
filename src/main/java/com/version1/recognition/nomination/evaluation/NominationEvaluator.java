@@ -1,20 +1,18 @@
 package com.version1.recognition.nomination.evaluation;
 
 import com.version1.recognition.nomination.Nomination;
-import com.version1.recognition.nomination.NominationService;
 
 /**
- * Judges the two language-quality signals (routine-task language, weak
- * justification) and produces a score + rationale for the coordinator.
- * <p>
- * Implementations must throw {@link AiEvaluationException} on any failure
- * (timeout, bad response, missing key) rather than let a raw exception
- * escape - {@link NominationService} relies on that to implement the
- * fallback behavior instead of blocking submission.
+ * Scores a nomination and explains the score.
+ *
+ * <p>Implementations must throw {@link AiEvaluationException} on any failure -
+ * timeout, bad response, missing key - rather than letting something else
+ * escape. NominationService relies on that to fall back gracefully instead of
+ * blocking the submission.
  */
 public interface NominationEvaluator {
 
-    /** True if this evaluator is actually usable right now (e.g. an API key is configured). */
+    /** Whether this evaluator can actually run right now (e.g. has a key). */
     boolean isAvailable();
 
     AiEvaluationResult evaluate(Nomination nomination) throws AiEvaluationException;
