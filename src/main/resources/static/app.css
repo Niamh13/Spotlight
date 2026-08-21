@@ -793,12 +793,32 @@ pre.log .no { color: var(--critical); font-weight: 600; }
 .emaillog { margin-top: 7px; }
 .emaillog summary {
   cursor: pointer; font-size: 12.5px; color: var(--ink-2); padding: 3px 0;
+  display: flex; align-items: center; gap: 8px; list-style: none;
+}
+/* Flexing the row drops the native disclosure triangle in both engines, so it
+   is drawn back in here rather than losing the open/shut cue. */
+.emaillog summary::-webkit-details-marker { display: none; }
+.emaillog summary::before {
+  content: "▸"; flex-shrink: 0; color: var(--muted); font-size: 10px;
+  transition: transform 0.15s;
+}
+.emaillog[open] summary::before { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) {
+  .emaillog summary::before { transition: none; }
 }
 .emaillog__tag {
-  display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+  display: inline-block; flex-shrink: 0;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
   text-transform: uppercase; padding: 1px 6px; border-radius: 4px;
   background: var(--praise-soft); color: var(--brand);
 }
+/* The subject takes the slack and truncates, so a long one pushes the button
+   along the row rather than off the end of it. */
+.emaillog__subj {
+  flex: 1; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.emaillog__send { flex-shrink: 0; }
 .emaillog__meta { font-size: 11.5px; margin: 5px 0; }
 .emaillog__body {
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;

@@ -1220,9 +1220,10 @@
       "</div>" +
 
       '<div class="notice"><span class="glyph">▲</span><div>' +
-        "<b>Messages are generated but not delivered.</b> No mail server is configured, " +
-        "so what you see here is the exact text a nominator would receive. It is stored " +
-        "as written at the time — editing a template later doesn't rewrite past records." +
+        "<b>Messages are generated here, not sent from here.</b> No mail server is " +
+        "configured — <b>Open in Outlook</b> hands you the message as a draft, and you " +
+        "send it. Each one is stored as written at the time, so editing a template later " +
+        "doesn't rewrite past records." +
       "</div></div>" +
 
       (rows.length
@@ -2124,20 +2125,130 @@
       });
   }
 
+  /* Composed messages waiting to be opened in Outlook, keyed by the id on their
+     button. The bodies are long and the buttons are rendered as HTML strings, so
+     the text is held here rather than round-tripped through a data- attribute. */
+  var commsSeq = 0;
+  var commsById = {};
+
+  /* A mailto: URL Outlook will accept. Line breaks have to be CRLF before
+     encoding - encodeURIComponent turns a bare \n into %0A, which Outlook is
+     inconsistent about honouring, while %0D%0A it always respects. */
+  function mailtoUrl(to, cc, subject, body) {
+    var url = "mailto:" + encodeURIComponent(to || "") +
+      "?subject=" + encodeURIComponent(subject || "");
+    if (cc && cc !== to) url += "&cc=" + encodeURIComponent(cc);
+    if (body) url += "&body=" + encodeURIComponent(body.replace(/\r?\n/g, "\r\n"));
+    return url;
+  }
+
+  /* Windows passes a mailto: to the shell, which truncates somewhere around
+     2083 characters. Staying under that decides whether the body travels in the
+     link or via the clipboard. */
+  var MAILTO_MAX = 1900;
+
+  /* Best-effort clipboard write. The async API needs a secure context, which
+     localhost is but a plain-http LAN address is not, so the old execCommand
+     path stays as a fallback. Resolves false when neither worked. */
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text)
+        .then(function () { return true; })
+        .catch(function () { return legacyCopy(text); });
+    }
+    return Promise.resolve(legacyCopy(text));
+  }
+
+  function legacyCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (err) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  /* Hands one composed message to Outlook as a draft. Nothing is sent - the
+     admin still reads it and presses send themselves.
+
+     Long messages don't survive the shell's URL limit, so those open addressed
+     but empty with the body on the clipboard instead. Losing the body silently
+     would be worse than asking for one paste. */
+  function openInOutlook(c) {
+    if (!c) return;
+    var full = mailtoUrl(c.to, c.cc, c.subject, c.body);
+
+    if (full.length <= MAILTO_MAX) {
+      window.location.href = full;
+      toast({
+        kind: "coordinator",
+        title: "Draft opened in Outlook",
+        msg: "Addressed to " + (c.to || "—") + ". Nothing has been sent — read it over and send it yourself."
+      });
+      return;
+    }
+
+    // Open the draft now, while the click that triggered this is still counted
+    // as user activation. Waiting for the clipboard promise to settle first
+    // risks the browser refusing to hand off to the mail handler at all.
+    window.location.href = mailtoUrl(c.to, c.cc, c.subject, "");
+
+    copyText(c.body || "").then(function (copied) {
+      toast({
+        kind: "coordinator",
+        sticky: true,
+        title: copied ? "Draft opened — paste the message in" : "Draft opened — copy the message in",
+        msg: copied
+          ? "This one is too long to travel in the link, so the full text is on your clipboard. Press Ctrl+V in the Outlook draft."
+          : "This one is too long to travel in the link, and the clipboard wasn't available. Copy the text from the message below into the draft."
+      });
+    });
+  }
+
+  /* One delegated listener for every Open in Outlook button. The blocks are
+     injected by two independent paths that re-render on their own schedule
+     (the audit box and the activity log), so there is no shared moment at
+     which per-button listeners could be attached. */
+  function wireOutlookButtons() {
+    document.addEventListener("click", function (ev) {
+      var btn = ev.target.closest ? ev.target.closest("[data-comm]") : null;
+      if (!btn) return;
+      // The button sits inside a <summary>: without this, using it would also
+      // toggle the block open or shut.
+      ev.preventDefault();
+      ev.stopPropagation();
+      openInOutlook(commsById[btn.getAttribute("data-comm")]);
+    });
+  }
+
   /* The message the decision generated, verbatim. Collapsed by default: a
      coordinator scanning history wants the actions, and only occasionally the
-     exact wording someone received. Labelled as not delivered, because there is
-     no mail server and implying otherwise would be a lie in an audit trail. */
+     exact wording someone received. The button is in the summary so it can be
+     used without expanding anything. */
   function emailBlock(e) {
     var comms = e.comms || [];
     if (!comms.length) return "";
     return comms.map(function (c) {
       var who = c.recipientRole === "NOMINEE" ? "nominee" : "nominator";
+      var id = "comm" + (++commsSeq);
+      commsById[id] = {
+        to: c.recipientEmail, cc: e.coordinatorEmail,
+        subject: c.subject, body: c.body
+      };
       return '<details class="emaillog"><summary>' +
-        '<span class="emaillog__tag">to ' + who + "</span> " + esc(c.subject || "") +
-        '<span class="muted"> — ' + esc(c.recipientEmail || "—") + "</span></summary>" +
+        '<span class="emaillog__tag">to ' + who + "</span> " +
+        '<span class="emaillog__subj">' + esc(c.subject || "") +
+        '<span class="muted"> — ' + esc(c.recipientEmail || "—") + "</span></span>" +
+        '<button type="button" class="btn-sm emaillog__send" data-comm="' + id + '"' +
+        ' title="Opens a pre-filled draft in Outlook. Nothing is sent until you send it.">' +
+        "✉ Open in Outlook</button></summary>" +
         '<div class="emaillog__meta muted">Composed ' + esc(fmtDate(c.sentAt)) +
-        " · not delivered (no mail server configured)</div>" +
+        " · not sent automatically — use Open in Outlook to send it yourself</div>" +
         '<pre class="emaillog__body">' + esc(c.body || "") + "</pre></details>";
     }).join("");
   }
@@ -2544,6 +2655,7 @@
   wireGreyscale();
   loadPersona();
   wirePersonaSwitcher();
+  wireOutlookButtons();
   window.addEventListener("hashchange", render);
   Promise.all([loadNominations(), loadCategories(), loadQuarter(), loadQuarterHistory(), loadActivity(), loadCoreValues()])
     .then(function () {
