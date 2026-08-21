@@ -293,12 +293,14 @@ public class NominationService {
                 .orElse(null);
 
         if (existing != null) {
+            // Deliberately no review status. Where a nomination has got to is a
+            // coordinator's working state; the nominator is told the outcome by
+            // email when there is one, not by watching the queue.
             throw new QuarterLimitReachedException(
                     "You've already submitted your nomination for " + quarter.label() + " - "
-                            + existing.getNomineeName() + ", currently "
-                            + existing.getStatus().name().toLowerCase().replace('_', ' ')
-                            + ". Everyone gets one nomination per quarter. You'll be able to submit "
-                            + "again from " + quarter.next().label() + ".",
+                            + existing.getNomineeName() + ". Everyone gets one nomination per "
+                            + "quarter. You'll be able to submit again from "
+                            + quarter.next().label() + ".",
                     quarter.label());
         }
     }

@@ -107,7 +107,7 @@
   --mtm-soft:    #262421;
 }
 /* The logo is an image, not a token, so desaturate it directly. */
-:root[data-palette="grey"] .logo__mark svg,
+:root[data-palette="grey"] .logo__img,
 :root[data-palette="grey"] .starlogo { filter: grayscale(1); }
 
 * { box-sizing: border-box; }
@@ -135,13 +135,20 @@ aside {
   background: var(--surface); border-right: 1px solid var(--border);
   display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
 }
+/* Stacked, not side by side. The artwork is 3:2 with generous internal
+   margins, so at the ~38px a horizontal lockup allows it would read as a
+   smudge. Given the full sidebar width it stays legible. */
 .logo {
-  display: flex; align-items: center; gap: 11px;
-  padding: 18px 16px 16px; text-decoration: none; color: inherit;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 14px 16px 12px; text-decoration: none; color: inherit; text-align: center;
 }
 .logo:hover .logo__name { color: var(--brand); }
-.logo__mark { width: 38px; height: 38px; flex: none; }
-.logo__mark svg { width: 100%; height: 100%; display: block; }
+.logo__img {
+  width: 100%; max-width: 168px; height: auto; display: block;
+  /* Trims some of the artwork's own top and bottom margin without touching
+     the file - it ships with a lot of empty space above and below. */
+  margin: -14px 0 -18px;
+}
 .logo__words { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
 .logo__name {
   font-size: 18px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink);
@@ -737,6 +744,8 @@ pre.log .no { color: var(--critical); font-weight: 600; }
   aside nav { display: flex; gap: 4px; padding: 8px; }
   aside nav .navgroup { display: none; }
   nav a { white-space: nowrap; }
+  .logo { flex-direction: row; gap: 9px; padding: 10px 12px; }
+  .logo__img { max-width: 52px; margin: 0; }
   .themebar { border-top: none; border-left: 1px solid var(--border); padding: 10px; }
   .themebar__label { display: none; }
   .whoami { border-top: none; border-left: 1px solid var(--border); }
@@ -894,3 +903,30 @@ pre.log .no { color: var(--critical); font-weight: 600; }
 @media (max-width: 1180px) {
   .valueguide__list { grid-template-columns: 1fr; }
 }
+
+/* ---------------- compare ---------------- */
+.tickcol { width: 34px; text-align: center; }
+.tickcol input { width: auto; margin: 0; cursor: pointer; }
+
+.compare {
+  border-top: 1px solid var(--border); padding: 16px 18px; background: var(--surface-2);
+}
+.compare__head {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  font-size: 13.5px; margin-bottom: 12px;
+}
+.compare__head .muted { font-size: 12.5px; }
+/* Scrolls sideways rather than squeezing columns past readability - three
+   nominations of prose will not fit at once on most screens. */
+.compare__grid { display: grid; gap: 14px; overflow-x: auto; padding-bottom: 4px; }
+.compare__col {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 11px; padding: 13px 15px; min-width: 0;
+}
+.compare__who {
+  display: flex; align-items: center; gap: 10px; font-size: 13.5px;
+  padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--grid);
+}
+.compare__field { margin-bottom: 10px; }
+.compare__field:last-child { margin-bottom: 0; }
+.compare__val { margin-top: 3px; font-size: 12.5px; line-height: 1.5; }
