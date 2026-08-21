@@ -91,7 +91,7 @@
   };
 
   var FIELDS = ["nominatorName", "nominatorEmail", "nomineeName", "nomineeEmail",
-                "practice", "location", "category", "coreValue", "whatText", "howText",
+                "practice", "location", "category", "whatText", "howText",
                 "originalNominationId"];
 
   var AV_COLORS = ["#6C4BD8", "#0F9E8E", "#C2410C", "#2a78d6", "#B0448F", "#0f766e"];
@@ -496,6 +496,7 @@
   var currentCategory = "";
   var currentPractice = "";
   var currentLocation = "";
+  var currentName = "";
   var queueFilter = null;
   var openDetailId = null;
 
@@ -641,17 +642,16 @@
             '<option value="Pune"></option></datalist>' +
 
           areaField("whatText", "WHAT — the achievement, contribution or action") +
-          coreValueField() +
-          areaField("howText", "HOW — how they demonstrated that value") +
+          areaField("howText", "HOW — which core value they showed, and how") +
+          coreValueGuide() +
 
           (openForRevision
             ? '<div class="notice" style="border-style:solid;border-color:' +
               "color-mix(in srgb, var(--info) 35%, var(--border));background:" +
               'color-mix(in srgb, var(--info) 7%, var(--surface))"><span class="glyph" ' +
               'style="color:var(--info)">↩</span><div><b>Revising your ' +
-              esc(q.label) + ' nomination.</b> Your previous entry for ' +
-              esc(q.submission.nomineeName) + " was " +
-              esc((STATUS[q.submission.status] || {}).label || "").toLowerCase() +
+              esc(q.label) + ' nomination.</b> A coordinator has asked for more ' +
+              "detail on your entry for " + esc(q.submission.nomineeName) +
               ". This replaces it and doesn't use another nomination.</div></div>"
             : "") +
           '<div class="field" data-field="originalNominationId" id="resubWrap"' +
@@ -760,7 +760,7 @@
     var sub = q.submission || {};
     return '<div class="card"><header><h2>' +
       "You've nominated for " + esc(q.label) + "</h2>" +
-      '<div class="spacer"></div>' + pill(sub.status) + "</header><div class=\"body\">" +
+      "</header><div class=\"body\">" +
       '<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">' +
         avatar(sub.nomineeName) +
         '<div style="min-width:0;flex:1 1 220px">' +
@@ -789,24 +789,24 @@
       '<div class="err"></div></div>';
   }
 
-  /* The core value, picked from a list rather than left to the prose.
-     It sits directly above the HOW because it sets the question that box has to
-     answer: "how did they show Personal Commitment?" is a far easier thing to
-     write well than "how did they demonstrate a core value?", which is what
-     produced most of the vague HOW text in the first place. */
-  function coreValueField() {
-    var opts = store.coreValues.map(function (v) {
-      return '<option value="' + esc(v.value) + '">' + esc(v.label) + "</option>";
+  /* The six core values, listed under the HOW box for reference rather than
+     offered as a dropdown.
+
+     A picker asks people to categorise before they have written anything, which
+     tends to produce a selection that the HOW then never argues for. Listing
+     them here keeps the value in the nominator's own words, where a coordinator
+     can see the reasoning. The value is still recorded - the service reads it
+     back out of the text - so per-value reporting is unaffected. */
+  function coreValueGuide() {
+    var items = store.coreValues.map(function (v) {
+      return '<li class="valueguide__item"><b>' + esc(v.label) + "</b>" +
+        '<span class="valueguide__hint">' + esc(v.prompt) + "</span></li>";
     }).join("");
 
-    return '<div class="field" data-field="coreValue">' +
-      '<label for="coreValue">Which core value did they demonstrate? ' +
-      '<span class="req">*</span></label>' +
-      '<select id="coreValue"><option value="">Select a core value…</option>' + opts + "</select>" +
-      '<p class="field__hint" id="coreValueHint">' +
-      "Version 1's six core values. Pick the one this contribution best shows — " +
-      "then explain how underneath.</p>" +
-      '<div class="err"></div></div>';
+    return '<div class="valueguide">' +
+      '<div class="valueguide__head">Name one of these in your HOW, and say how they showed it</div>' +
+      '<ul class="valueguide__list">' + items + "</ul>" +
+      "</div>";
   }
 
   function field(id, label, type, list) {
@@ -829,12 +829,24 @@
     if (!list.length) return '<div class="empty">Nothing here yet.</div>';
 
     var showAi = canSeeAi();
+    var showCompare = isCoordinator() && route() === "queue";
+
     return '<div class="tablewrap"><table><thead><tr>' +
+      (showCompare ? '<th class="tickcol"><span class="sr-only">Select</span></th>' : "") +
       "<th>Nominee</th><th>Nominated by</th><th>Category</th><th>Practice</th><th>Location</th>" +
       (showAi ? "<th>AI</th>" : "") +
-      "<th>Status</th><th>Submitted</th></tr></thead><tbody>" +
+      // Review status is a coordinator's working state. Employees are told the
+      // outcome by email; showing a live "pending review" here just invites
+      // people to watch the queue.
+      (isCoordinator() ? "<th>Status</th>" : "") +
+      "<th>Submitted</th></tr></thead><tbody>" +
       list.map(function (n) {
         return '<tr class="clickable" data-id="' + esc(n.id) + '">' +
+          (showCompare
+            ? '<td class="tickcol"><input type="checkbox" class="rowtick" ' +
+              'data-tick="' + esc(n.id) + '"' + (compareIds.indexOf(n.id) !== -1 ? " checked" : "") +
+              ' aria-label="Select ' + esc(n.nomineeName) + ' to compare"></td>'
+            : "") +
           '<td class="nowrap"><span style="display:inline-flex;align-items:center;gap:10px">' +
             avatar(n.nomineeName, "sm") + "<b>" + esc(n.nomineeName) + "</b></span></td>" +
           "<td>" + esc(n.nominatorName) + "</td>" +
@@ -842,7 +854,7 @@
           "<td>" + esc(n.practice) + "</td>" +
           "<td>" + esc(n.location) + "</td>" +
           (showAi ? '<td class="nowrap">' + aiCell(n) + "</td>" : "") +
-          "<td>" + pill(n.status) + "</td>" +
+          (isCoordinator() ? "<td>" + pill(n.status) + "</td>" : "") +
           '<td class="when">' + esc(fmtDate(n.submittedAt)) + "</td></tr>";
       }).join("") + "</tbody></table></div>";
   }
@@ -871,8 +883,6 @@
     var received = mine.filter(function (n) {
       return String(n.nomineeEmail || "").toLowerCase() === p.email.toLowerCase();
     });
-    var c = counts(mine);
-
     return '<div class="page-head"><div class="head-row"><div>' +
         "<h1>My Recognition</h1><p>Nominations you submitted, and nominations you received.</p></div>" +
         '<div class="spacer"></div>' + roleChip(p.role) + tagLive() + "</div></div>" +
@@ -885,8 +895,6 @@
       '<div class="kpis">' +
         kpi("k-star", "Submitted by you", submitted.length, "", true) +
         kpi("k-praise", "Received by you", received.length, "", true) +
-        kpi("k-total", "Pending review", c.PENDING_REVIEW, "", true) +
-        kpi("k-mtm", "Needs resubmission", c.NEEDS_RESUBMISSION, "", true) +
       "</div>" +
 
       '<div class="card" style="margin-bottom:18px"><header><h2>Submitted by you</h2>' +
@@ -899,43 +907,29 @@
   };
 
   /* ---------- Star Awards ---------- */
+  /* Star Awards is the same page for everyone: the approved awards, as a wall
+     of winners. The coordinator's working view - every status, filters, the
+     decision buttons - lives on the Review Queue, which is where the work
+     actually happens. Two screens showing the same rows differently was mostly
+     a way to end up looking at the wrong one. */
   views.stars = function () {
-    // An employee has no business browsing everyone's pending and rejected
-    // nominations, so they see the approved ones — the wall of winners.
-    // A coordinator sees everything, filterable.
-    if (!isCoordinator()) {
-      var approved = store.nominations.filter(function (n) { return n.status === "APPROVED"; });
-      return '<div class="star-hero">' + starLockup("Spotlight") +
-          "<h1>Colleagues recognised for going above and beyond</h1>" +
-          "<p>The Star Award is for outstanding contribution — not for doing the job well, " +
-          "but for the thing nobody expected and everybody felt.</p></div>" +
-          '<div class="head-row" style="margin-bottom:18px">' + roleChip(persona().role) +
-          tagLive() + "</div>" +
-        '<div class="notice"><span class="glyph">▲</span><div><b>Approved awards only.</b> ' +
-          "Nominations still under review are visible to recognition coordinators, not to everyone." +
-          "</div></div>" +
-        '<div class="card"><header><h2>Approved Star Awards</h2>' +
-          '<div class="spacer"></div><span class="ep">' + approved.length + " approved</span></header>" +
-          nominationTable(approved) + '<div id="detail"></div></div>' +
-        "";
-    }
+    var approved = store.nominations.filter(function (n) { return n.status === "APPROVED"; });
 
     return '<div class="star-hero">' + starLockup("Spotlight") +
-        "<h1>Every nomination, by status</h1>" +
-        "<p>Select a row for the full record, the assessment and the decision history.</p></div>" +
+        "<h1>Colleagues recognised for going above and beyond</h1>" +
+        "<p>The Star Award is for outstanding contribution — not for doing the job well, " +
+        "but for the thing nobody expected and everybody felt.</p></div>" +
         '<div class="head-row" style="margin-bottom:18px">' + roleChip(persona().role) +
         tagLive() + "</div>" +
-      '<div class="card"><header><h2>Nominations</h2>' +
-        '<div class="spacer"></div><div class="tabs" id="statusTabs">' +
-          '<button class="tab on" data-f="">All</button>' +
-          '<button class="tab" data-f="PENDING_REVIEW">Pending</button>' +
-          '<button class="tab" data-f="NEEDS_RESUBMISSION">Needs resubmission</button>' +
-          '<button class="tab" data-f="APPROVED">Approved</button>' +
-          '<button class="tab" data-f="REJECTED">Rejected</button>' +
-        "</div></header>" +
-        filterBar() +
-        '<div id="starTable">' + nominationTable(store.nominations) + "</div>" +
-        '<div id="detail"></div></div>' +
+      '<div class="notice"><span class="glyph">▲</span><div><b>Approved awards only.</b> ' +
+        (isCoordinator()
+          ? 'Everything still in flight is on the <a href="#/queue">Review Queue</a>.'
+          : "Nominations still under review are visible to recognition coordinators, " +
+            "not to everyone.") +
+        "</div></div>" +
+      '<div class="card"><header><h2>Approved Star Awards</h2>' +
+        '<div class="spacer"></div><span class="ep">' + approved.length + " approved</span></header>" +
+        nominationTable(approved) + '<div id="detail"></div></div>' +
       "";
   };
 
@@ -977,10 +971,13 @@
         'See all assessments weakest-first on <a href="#/ai">AI Review</a>.</div></div>' +
 
       '<div class="card"><header><h2>' + esc((STATUS[showing] || {}).label || showing) + "</h2>" +
-        '<div class="spacer"></div><span class="ep">' + list.length + " nomination" +
-        (list.length === 1 ? "" : "s") + "</span>" +
+        '<div class="spacer"></div>' +
+        '<button class="btn-sm" id="compareBtn" disabled>Compare selected</button>' +
         '<button class="btn-sm" id="refreshBtn">Refresh</button></header>' +
-        nominationTable(list) + '<div id="detail"></div></div>' +
+        filterBar() +
+        '<div id="starTable">' + nominationTable(list) + "</div>" +
+        '<div id="compareBox"></div>' +
+        '<div id="detail"></div></div>' +
       "";
   };
 
@@ -1351,22 +1348,38 @@
 
   views.mtm = function () {
     return '<div class="page-head"><div class="head-row"><div>' +
-        "<h1>Moments that Matter</h1><p>Track the status of your requests.</p></div>" +
+        "<h1>Moments that Matter</h1><p>" +
+        (isCoordinator()
+          ? "Requests from across the business, and where each one has got to."
+          : "Track the status of your requests.") + "</p></div>" +
         '<div class="spacer"></div>' + tagShell() +
         '<a class="btn btn-mtm" href="#/mtm/new">Request MtM</a></div></div>' +
       shellNotice("Moments that Matter isn't built yet, so none of these requests are real.") +
-      '<div class="card"><header><h2>My Moments that Matter</h2><div class="spacer"></div>' +
-        '<div class="tabs"><button class="tab on">All</button><button class="tab">Pending</button>' +
-        '<button class="tab">Approved</button><button class="tab">In progress</button>' +
-        '<button class="tab">Delivered</button><button class="tab">Declined</button></div></header>' +
+      '<div class="card"><header><h2>' +
+        (isCoordinator() ? "Moments that Matter requests" : "My Moments that Matter") + "</h2>" +
+        '<div class="spacer"></div>' +
+        // Filtering by outcome is a reviewer's job. An employee is looking at
+        // their own handful of requests and can see the status on each row -
+        // giving them a queue filter implies there is a queue to work through.
+        (isCoordinator()
+          ? '<div class="tabs"><button class="tab on">All</button><button class="tab">Pending</button>' +
+            '<button class="tab">Approved</button><button class="tab">In progress</button>' +
+            '<button class="tab">Delivered</button><button class="tab">Declined</button></div>'
+          : '<span class="ep">' + SAMPLE_MTM.length + " request" +
+            (SAMPLE_MTM.length === 1 ? "" : "s") + "</span>") +
+        "</header>" +
         '<div class="tablewrap"><table><thead><tr><th>Request id</th><th>Type</th><th>Recipient</th>' +
-        "<th>Submitted</th><th>Status</th></tr></thead><tbody>" +
+        "<th>Submitted</th>" + (isCoordinator() ? "<th>Status</th>" : "") +
+        "</tr></thead><tbody>" +
         SAMPLE_MTM.map(function (r) {
           var t = MTM_TYPES.filter(function (x) { return x.k === r.type; })[0] || { ic: "•" };
           return '<tr><td class="mono">' + esc(r.id) + "</td>" +
             "<td>" + t.ic + " " + esc(r.type) + "</td><td>" + esc(r.who) + "</td>" +
             '<td class="when">' + esc(r.date) + "</td>" +
-            '<td><span class="pill ' + r.st + '"><span class="g">●</span>' + esc(r.lab) + "</span></td></tr>";
+            (isCoordinator()
+              ? '<td><span class="pill ' + r.st + '"><span class="g">●</span>' +
+                esc(r.lab) + "</span></td>"
+              : "") + "</tr>";
         }).join("") + "</tbody></table></div></div>";
   };
 
@@ -1655,6 +1668,106 @@
       });
   }
 
+  /* ---------- compare ------------------------------------------------
+     Reading two nominations by opening one, remembering it, and opening the
+     other is how inconsistent decisions happen. Putting them side by side
+     makes "is this one really weaker than that one?" answerable by looking.
+     -------------------------------------------------------------------- */
+  var compareIds = [];
+
+  function updateCompareButton() {
+    var btn = $("#compareBtn");
+    if (!btn) return;
+    btn.disabled = compareIds.length < 2;
+    btn.textContent = compareIds.length
+      ? "Compare " + compareIds.length + " selected"
+      : "Compare selected";
+  }
+
+  function wireCompare() {
+    var table = $("#starTable");
+    if (table) {
+      table.addEventListener("change", function (ev) {
+        var box = ev.target.closest ? ev.target.closest("[data-tick]") : null;
+        if (!box) return;
+        var id = box.getAttribute("data-tick");
+        var at = compareIds.indexOf(id);
+        if (box.checked && at === -1) { compareIds.push(id); }
+        if (!box.checked && at !== -1) { compareIds.splice(at, 1); }
+        updateCompareButton();
+      });
+      // A tick is not a row click - without this, selecting also opens the
+      // detail pane underneath.
+      table.addEventListener("click", function (ev) {
+        if (ev.target.closest && ev.target.closest("[data-tick]")) { ev.stopPropagation(); }
+      });
+    }
+
+    var btn = $("#compareBtn");
+    if (btn) btn.addEventListener("click", renderCompare);
+  }
+
+  function renderCompare() {
+    var box = $("#compareBox");
+    if (!box) return;
+
+    var picked = compareIds
+      .map(function (id) {
+        return store.nominations.filter(function (n) { return n.id === id; })[0];
+      })
+      .filter(Boolean);
+
+    if (picked.length < 2) { box.innerHTML = ""; return; }
+
+    box.innerHTML =
+      '<div class="compare"><div class="compare__head">' +
+        "<b>Comparing " + picked.length + " nominations</b>" +
+        '<span class="muted">Same fields, side by side.</span>' +
+        '<div class="spacer"></div>' +
+        '<button type="button" class="linkish" id="clearCompare">Clear selection</button>' +
+      "</div>" +
+      '<div class="compare__grid" style="grid-template-columns:repeat(' + picked.length +
+        ',minmax(260px,1fr))">' +
+        picked.map(compareColumn).join("") +
+      "</div></div>";
+
+    $("#clearCompare").addEventListener("click", function () {
+      compareIds = [];
+      $$(".rowtick").forEach(function (t) { t.checked = false; });
+      updateCompareButton();
+      box.innerHTML = "";
+    });
+
+    box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function compareColumn(n) {
+    var flags = (n.aiFlags || []).map(function (f) {
+      return '<span class="valchip flag">▲ ' + esc(f.label || f.flag) + "</span>";
+    }).join(" ");
+
+    return '<div class="compare__col">' +
+      '<div class="compare__who">' + avatar(n.nomineeName, "sm") +
+        "<span><b>" + esc(n.nomineeName) + "</b><br>" +
+        '<span class="muted" style="font-size:11.5px">by ' + esc(n.nominatorName) + "</span></span>" +
+      "</div>" +
+      compareRow("Score", n.aiScore == null
+        ? '<span class="muted">not scored</span>'
+        : "<b>" + esc(String(n.aiScore)) + "</b>/100") +
+      compareRow("Category", n.categoryLabel || "—") +
+      compareRow("Core value", n.coreValueLabel || "not identified") +
+      compareRow("Practice", esc(n.practice) + " · " + esc(n.location)) +
+      compareRow("What", esc(n.whatText)) +
+      compareRow("How", esc(n.howText)) +
+      compareRow("Flags", flags || '<span class="muted">none</span>') +
+      "</div>";
+  }
+
+  function compareRow(label, value) {
+    return '<div class="compare__field"><div class="k">' + esc(label) + "</div>" +
+      '<div class="compare__val">' + value + "</div></div>";
+  }
+
   /* The expanded record under a table row. What a coordinator sees here is
      quite different from what an employee sees - AI assessment, decision
      buttons and history are all coordinator-only. */
@@ -1665,7 +1778,8 @@
     d.innerHTML =
       '<div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;flex-wrap:wrap">' +
         avatar(n.nomineeName, "sm") +
-        '<h3 style="font-size:15px">' + esc(n.nomineeName) + "</h3>" + pill(n.status) +
+        '<h3 style="font-size:15px">' + esc(n.nomineeName) + "</h3>" +
+        (isCoordinator() ? pill(n.status) : "") +
         '<div class="spacer"></div><button class="linkish" id="closeDetail">Close</button></div>' +
 
       // You see the assessment of words you wrote yourself, because it tells you
@@ -1691,7 +1805,7 @@
         metaCell("Nominated by", n.nominatorName + " · " + (n.nominatorEmail || "—")) +
         metaCell("Nominee", n.nomineeName + " · " + (n.nomineeEmail || "—")) +
         metaCell("Category", categoryLabel(n) || "Uncategorised") +
-        metaCell("Core value", n.coreValueLabel || "—") +
+        metaCell("Core value", n.coreValueLabel || "not identified") +
         metaCell("Practice", n.practice) + metaCell("Location", n.location) +
         metaCell("Submitted", fmtDate(n.submittedAt)) +
         metaCell("Decision date", fmtDate(n.decisionDate)) +
@@ -1758,6 +1872,9 @@
      internally, by division. */
   function filterBar() {
     return '<div class="filterbar">' +
+      '<label for="nameSearch">Name</label>' +
+      '<input type="text" id="nameSearch" placeholder="Nominee or nominator…" ' +
+      'autocomplete="off" style="max-width:190px">' +
       '<label for="catFilter">Category</label>' +
       '<select id="catFilter"><option value="">All categories</option>' +
         store.categories.map(function (c) {
@@ -2304,7 +2421,7 @@
   function render() {
     var r = route();
     if (r !== lastRoute) {
-      if (lastRoute === "queue") { queueFilter = null; }
+      if (lastRoute === "queue") { queueFilter = null; compareIds = []; }
       lastRoute = r;
     }
 
@@ -2332,7 +2449,20 @@
   }
 
   function wire(r) {
-    if (r === "submit") wireForm();
+    if (r === "submit") {
+      wireForm();
+      // The form is drawn from cached quarter state. Refresh it on arrival in
+      // case it moved elsewhere - another tab, or a coordinator sending this
+      // nomination back - and re-render only if the answer actually changed,
+      // which keeps this from looping.
+      var wasSubmitted = !!(store.quarter && store.quarter.hasSubmitted);
+      loadQuarter().then(function () {
+        var nowSubmitted = !!(store.quarter && store.quarter.hasSubmitted);
+        if (route() === "submit" && wasSubmitted !== nowSubmitted) {
+          render();
+        }
+      });
+    }
     if (r === "mine" || r === "stars" || r === "queue") wireList();
     if (r === "activity") {
       loadActivity().then(function () {
@@ -2351,7 +2481,15 @@
   }
 
   function applyFilters() {
-    var list = store.nominations;
+    // The review queue is already showing one status, chosen by its KPI tiles.
+    // Filtering has to narrow that, not reach past it back to the whole table.
+    var base = store.nominations;
+    if (route() === "queue") {
+      var showing = queueFilter || "PENDING_REVIEW";
+      base = base.filter(function (n) { return n.status === showing; });
+    }
+
+    var list = base;
     if (currentFilter) {
       list = list.filter(function (n) { return n.status === currentFilter; });
     }
@@ -2366,6 +2504,16 @@
     if (currentLocation) {
       list = list.filter(function (n) { return n.location === currentLocation; });
     }
+    if (currentName) {
+      // Matches either side. A coordinator searching a name is usually asking
+      // "what is going on with this person", which covers both what they wrote
+      // and what was written about them.
+      var needle = currentName.toLowerCase();
+      list = list.filter(function (n) {
+        return String(n.nomineeName || "").toLowerCase().indexOf(needle) !== -1 ||
+               String(n.nominatorName || "").toLowerCase().indexOf(needle) !== -1;
+      });
+    }
     var table = $("#starTable");
     if (table) {
       table.innerHTML = nominationTable(list);
@@ -2373,8 +2521,9 @@
     }
     var count = $("#filterCount");
     if (count) {
-      count.textContent = list.length + " of " + store.nominations.length + " shown";
+      count.textContent = list.length + " of " + base.length + " shown";
     }
+    updateCompareButton();
     closeDetail();
   }
 
@@ -2393,6 +2542,16 @@
 
     currentPractice = "";
     currentLocation = "";
+    currentName = "";
+
+    var nameBox = $("#nameSearch");
+    if (nameBox) {
+      nameBox.value = currentName;
+      nameBox.addEventListener("input", function () {
+        currentName = nameBox.value.trim();
+        applyFilters();
+      });
+    }
 
     bindFilter("#catFilter", function (v) { currentCategory = v; });
     bindFilter("#practiceFilter", function (v) { currentPractice = v; });
@@ -2400,8 +2559,8 @@
 
     var clear = $("#clearFilters");
     if (clear) clear.addEventListener("click", function () {
-      currentCategory = currentPractice = currentLocation = "";
-      ["#catFilter", "#practiceFilter", "#locationFilter"].forEach(function (sel) {
+      currentCategory = currentPractice = currentLocation = currentName = "";
+      ["#catFilter", "#practiceFilter", "#locationFilter", "#nameSearch"].forEach(function (sel) {
         var el = $(sel); if (el) el.value = "";
       });
       applyFilters();
@@ -2423,6 +2582,8 @@
       });
     }
     bindRows();
+    wireCompare();
+    updateCompareButton();
   }
 
   function bindFilter(selector, set) {
@@ -2446,36 +2607,6 @@
     // having one — but leave it editable so the self-nomination demo works.
     $("#nominatorName").value = p.name;
     $("#nominatorEmail").value = p.email;
-
-    var valSelect = $("#coreValue");
-    if (valSelect) {
-      valSelect.addEventListener("change", function () {
-        var chosen = store.coreValues.filter(function (v) {
-          return v.value === valSelect.value;
-        })[0];
-
-        var howLabel = $('label[for="howText"]');
-        var howBox = $("#howText");
-        if (chosen) {
-          $("#coreValueHint").textContent = chosen.prompt;
-          if (howLabel) {
-            howLabel.innerHTML = "HOW — how they demonstrated " + esc(chosen.label) +
-              ' <span class="req">*</span>';
-          }
-          if (howBox) {
-            howBox.placeholder = "Give a specific example of " + chosen.label +
-              " in action. What did they actually do, and what changed as a result?";
-          }
-        } else {
-          $("#coreValueHint").textContent = "Version 1's six core values. Pick the one " +
-            "this contribution best shows — then explain how underneath.";
-          if (howLabel) {
-            howLabel.innerHTML = 'HOW — how they demonstrated that value <span class="req">*</span>';
-          }
-          if (howBox) { howBox.placeholder = ""; }
-        }
-      });
-    }
 
     var catSelect = $("#category");
     if (catSelect) {
@@ -2503,7 +2634,6 @@
     function fill(v) {
       Object.keys(v).forEach(function (k) { if ($("#" + k)) $("#" + k).value = v[k]; });
       if (catSelect) catSelect.dispatchEvent(new Event("change"));
-      if (valSelect) valSelect.dispatchEvent(new Event("change"));
     }
 
     $("#sampleBtn").addEventListener("click", function () {
@@ -2512,7 +2642,6 @@
              nomineeName: "Alex Rivera", nomineeEmail: "alex.rivera@version1.com",
              practice: "Cloud Engineering", location: "Dublin",
              category: "CUSTOMER_IMPACT",
-             coreValue: "NO_EGO",
              whatText: "Led the release rollout over a tight weekend window and saved the client " +
                        "two full days of downtime, coordinating four teams across two time zones.",
              howText: "Collaboration and Excellence. Rather than working the weekend alone, Alex " +
@@ -2526,7 +2655,6 @@
              nomineeName: p.name, nomineeEmail: p.email,
              practice: "Cloud Engineering", location: "Dublin",
              category: "PERFORMANCE_AND_EFFICIENCY",
-             coreValue: "DRIVE",
              whatText: "Kept the release on track.", howText: "Showed ownership throughout." });
     });
 
@@ -2576,13 +2704,12 @@
               title: "Nomination submitted",
               msg: res.body.nomineeName + " is now in the coordinator's review queue."
             });
-            form.reset();
-            $("#nominatorName").value = p.name;
-            $("#nominatorEmail").value = p.email;
-            $("#resubWrap").hidden = true;
-            return Promise.all([loadNominations(), loadQuarter()]).then(function () {
-              renderNav(route().split("/")[0]);
-            });
+            // Re-render, don't just refresh the nav. The quarter's nomination
+            // is now used, so this screen has to become the "you've nominated"
+            // panel - leaving the form up invites a second attempt the server
+            // will only reject.
+            return Promise.all([loadNominations(), loadQuarter(), loadQuarterHistory()])
+              .then(function () { render(); });
           }
           if (res.body && res.body.reason === "QUARTER_LIMIT") {
             // Re-read and re-render so the form is replaced by the "already

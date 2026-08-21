@@ -68,7 +68,7 @@ public class NominationService {
                 request.getPractice(),
                 request.getLocation(),
                 request.getCategory(),
-                request.getCoreValue(),
+                resolveCoreValue(request),
                 request.getWhatText(),
                 request.getHowText(),
                 request.getOriginalNominationId()
@@ -85,6 +85,24 @@ public class NominationService {
         taggingService.retagAll();
 
         return repository.findById(saved.getId()).orElse(saved);
+    }
+
+    /**
+     * The value the nomination claims.
+     *
+     * <p>The form no longer offers a dropdown - nominators name the value in the
+     * HOW, in their own words - so this reads it back out of the text. Recording
+     * it keeps per-value reporting working without making anyone pick from a
+     * list before they have written anything.
+     *
+     * <p>An explicit value on the request still wins, for API clients that know
+     * what they mean.
+     */
+    private CoreValue resolveCoreValue(NominationRequest request) {
+        if (request.getCoreValue() != null) {
+            return request.getCoreValue();
+        }
+        return CoreValue.detectIn(request.getHowText()).orElse(null);
     }
 
     /**
@@ -275,12 +293,14 @@ public class NominationService {
                 .orElse(null);
 
         if (existing != null) {
+            // Deliberately no review status. Where a nomination has got to is a
+            // coordinator's working state; the nominator is told the outcome by
+            // email when there is one, not by watching the queue.
             throw new QuarterLimitReachedException(
                     "You've already submitted your nomination for " + quarter.label() + " - "
-                            + existing.getNomineeName() + ", currently "
-                            + existing.getStatus().name().toLowerCase().replace('_', ' ')
-                            + ". Everyone gets one nomination per quarter. You'll be able to submit "
-                            + "again from " + quarter.next().label() + ".",
+                            + existing.getNomineeName() + ". Everyone gets one nomination per "
+                            + "quarter. You'll be able to submit again from "
+                            + quarter.next().label() + ".",
                     quarter.label());
         }
     }

@@ -1,6 +1,8 @@
 package com.version1.recognition.nomination;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Version 1's six core values.
@@ -37,7 +39,12 @@ public enum CoreValue {
     CUSTOMER_FIRST(
             "Customer First",
             "Putting the customer's interests above our own convenience, even when that is the harder call.",
-            List.of("customer", "client")),
+            // Phrases, not bare "customer"/"client" - nearly every nomination
+            // mentions a client somewhere, and matching on that alone attributed
+            // half of them to this value.
+            List.of("customer first", "client first", "put the customer", "put the client",
+                    "customer's interests", "client's interests", "best interests",
+                    "ahead of our own", "what they needed to hear")),
 
     EXCELLENCE(
             "Excellence",
@@ -73,8 +80,45 @@ public enum CoreValue {
         if (text == null || text.isBlank()) {
             return false;
         }
-        String lower = text.toLowerCase(java.util.Locale.ROOT);
+        String lower = text.toLowerCase(Locale.ROOT);
         return keywords.stream().anyMatch(lower::contains);
+    }
+
+    /**
+     * Works out which value a piece of text is claiming, if any.
+     *
+     * <p>The form asks for the value in prose rather than from a dropdown, so
+     * this is how the value still gets recorded for reporting. Naming it outright
+     * ("this showed No Ego") wins over a keyword brushing past it, because the
+     * name is a deliberate statement and a keyword is a guess.
+     *
+     * <p>Returns empty when nothing matches, which is itself worth knowing: a
+     * write-up that never names a value is exactly what the weak-justification
+     * rule is looking for.
+     */
+    public static Optional<CoreValue> detectIn(String text) {
+        if (text == null || text.isBlank()) {
+            return Optional.empty();
+        }
+        String lower = text.toLowerCase(Locale.ROOT);
+
+        // Named outright - check every value before falling back.
+        for (CoreValue value : values()) {
+            if (lower.contains(value.namePattern())) {
+                return Optional.of(value);
+            }
+        }
+        for (CoreValue value : values()) {
+            if (value.isEvidencedIn(lower)) {
+                return Optional.of(value);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** The label as it tends to be typed: lower case, "&" spelled out. */
+    private String namePattern() {
+        return label.toLowerCase(Locale.ROOT).replace(" & ", " and ");
     }
 
     /** Display name, e.g. "No Ego". */
