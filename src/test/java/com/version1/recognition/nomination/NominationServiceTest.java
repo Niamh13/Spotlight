@@ -18,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -147,6 +148,28 @@ class NominationServiceTest {
 
             assertThat(result).isNotNull();
         }
+
+        @Test
+        @DisplayName("T-12: an existing nomination from the PREVIOUS quarter does not block a new submission "
+                + "this quarter - the limit resets each quarter")
+        void existingNominationFromPreviousQuarter_doesNotBlockNewSubmission() {
+            when(evaluator.isAvailable()).thenReturn(false);
+            when(taggingService.tag(any(), anyList())).thenReturn(List.of());
+            when(taggingService.retagAll()).thenReturn(0);
+
+            Nomination lastQuarter = new Nomination(
+                    "Nominator", "nominator@example.com", "Someone Else", "else@example.com",
+                    "Practice", "Location", AwardCategory.CUSTOMER_IMPACT, CoreValue.DRIVE,
+                    "existing what", "existing how", null);
+            ReflectionTestUtils.setField(lastQuarter, "submittedAt", Quarter.current().previous().start());
+            lenient().when(repository.findAll()).thenReturn(List.of(lastQuarter));
+
+            NominationRequest req = request("nominator@example.com", "nominee@example.com", null);
+
+            Nomination result = service.submit(req);
+
+            assertThat(result).isNotNull();
+        }
     }
 
     @Nested
@@ -238,6 +261,24 @@ class NominationServiceTest {
 
             verify(taggingService, times(1)).retagAll();
         }
+
+        @Test
+        @DisplayName("T-05 / T-27: however many flags a submission trips, the status is still PENDING_REVIEW - "
+                + "flags never auto-decide")
+        void multipleFlags_neverChangeStatusFromPendingReview() {
+            when(evaluator.isAvailable()).thenReturn(true);
+            NominationFlag weak = new NominationFlag(AiFlag.WEAK_JUSTIFICATION, FlagSource.RULE, "thin");
+            NominationFlag routine = new NominationFlag(AiFlag.ROUTINE_TASK_LANGUAGE, FlagSource.RULE, "routine");
+            when(taggingService.tag(any(), anyList())).thenReturn(List.of(weak, routine));
+            when(taggingService.retagAll()).thenReturn(0);
+            when(evaluator.evaluate(any())).thenReturn(new AiEvaluationResult(
+                    10, "heavily flagged", List.of(AiFlag.WEAK_JUSTIFICATION, AiFlag.ROUTINE_TASK_LANGUAGE), "v1"));
+
+            Nomination result = service.submit(request("a@example.com", "b@example.com", null));
+
+            assertThat(result.getAiFlags()).hasSize(2);
+            assertThat(result.getStatus()).isEqualTo(NominationStatus.PENDING_REVIEW);
+        }
     }
 
     @Nested
@@ -263,6 +304,9 @@ class NominationServiceTest {
 
             assertThat(result.getStatus()).isEqualTo(NominationStatus.APPROVED);
             assertThat(result.getCommsSentDate()).isNotNull();
+            // T-19: the deciding coordinator is recorded on the nomination itself,
+            // not just implied by who called the endpoint.
+            assertThat(result.getCoordinatorEmail()).isEqualTo("coordinator@example.com");
 
             ArgumentCaptor<AuditLogEntry> captor = ArgumentCaptor.forClass(AuditLogEntry.class);
             verify(auditLogRepository).save(captor.capture());
@@ -322,6 +366,8 @@ class NominationServiceTest {
 
             assertThat(result.getStatus()).isEqualTo(NominationStatus.REJECTED);
             assertThat(result.getRejectionReason()).isEqualTo("Not enough detail");
+            // T-33: a comms-sent timestamp is recorded on rejection too, not just approval.
+            assertThat(result.getCommsSentDate()).isNotNull();
 
             ArgumentCaptor<AuditLogEntry> captor = ArgumentCaptor.forClass(AuditLogEntry.class);
             verify(auditLogRepository).save(captor.capture());
@@ -346,6 +392,8 @@ class NominationServiceTest {
             Nomination result = service.requestResubmission(id, req);
 
             assertThat(result.getStatus()).isEqualTo(NominationStatus.NEEDS_RESUBMISSION);
+            // T-33: a comms-sent timestamp is recorded on a resubmission request too.
+            assertThat(result.getCommsSentDate()).isNotNull();
 
             ArgumentCaptor<AuditLogEntry> captor = ArgumentCaptor.forClass(AuditLogEntry.class);
             verify(auditLogRepository).save(captor.capture());

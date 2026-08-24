@@ -247,4 +247,97 @@ test.describe('UI / GUI', () => {
     await expect(coreValueHint).toContainText(/outcome ahead of personal credit/i);
     await expect(howBox).toHaveAttribute('placeholder', /No Ego/);
   });
+
+  test('T-26: full WHAT/HOW text is already visible in the same render as the Approve/Reject buttons '
+    + '- a coordinator never has to act before the content has loaded', async ({ page, request }) => {
+    const whatText = 'This exact sentence must be fully visible before any decision button is usable, '
+      + 'padded so it is unambiguous in the DOM: the release pipeline was rebuilt end to end.';
+    const created = await (await request.post('/api/nominations', {
+      data: {
+        nominatorName: 'UI TwentySix Nominator', nominatorEmail: uniqueEmail('ui26-nominator'),
+        nomineeName: 'UI TwentySix Nominee', nomineeEmail: uniqueEmail('ui26-nominee'),
+        practice: 'Digital', location: 'Dublin',
+        category: 'INNOVATION_AND_GROWTH', coreValue: 'EXCELLENCE',
+        whatText,
+        howText: 'They showed excellence by documenting every step so the next release was even faster.',
+      },
+    })).json();
+
+    await page.goto('/');
+    await switchPersona(page, 'colette');
+    await goToView(page, 'queue');
+    const row = page.locator(`tr.clickable[data-id="${created.id}"]`);
+    await expect(row).toBeVisible({ timeout: 10_000 });
+    await row.click();
+
+    // Both assertions target the same render pass - the detail panel writes
+    // its whole innerHTML (prose + action bar) in one go, so if this ever
+    // regresses into a progressive/lazy render, this test is what catches
+    // Approve becoming clickable before the WHAT text has actually arrived.
+    await expect(page.locator('#detail')).toContainText(whatText, { timeout: 10_000 });
+    await expect(page.locator('[data-act="approve"]')).toBeVisible();
+    await expect(page.locator('[data-act="reject"]')).toBeVisible();
+  });
+
+  test('T-41 (BUG, pinned as regression): reloading mid-form silently discards everything typed, with no '
+    + 'draft preserved and no warning that it was lost', async ({ page }) => {
+    // The manual test plan's expected result is "either the draft is
+    // preserved, or the user is clearly told the draft was lost - no
+    // ambiguous blank form". Checked directly in app.js: localStorage is used
+    // for persona/theme/greyscale/quarter-seen, never for form field values,
+    // and the only "Save draft" buttons in the app (Praises Wall / Reports
+    // placeholders) are hard-disabled stubs. So today a mid-form reload just
+    // silently produces the same blank form as a fresh visit - indistinguishable
+    // from "nothing was ever typed". Pinning the current (gap) behavior so a
+    // fix (either real draft persistence or a visible warning) shows up here
+    // as a welcome failure, matching this suite's UI-1a convention.
+    await page.goto('/');
+    await switchPersona(page, 'sarah');
+    await goToView(page, 'submit');
+
+    const form = page.locator('#form');
+    test.skip(!(await form.isVisible().catch(() => false)),
+      'Sarah has no available quarter slot in this run.');
+
+    const nomineeName = 'Draft Loss Regression Nominee';
+    await page.locator('#nomineeName').fill(nomineeName);
+    await page.locator('#whatText').fill('Some in-progress text that should not silently vanish on reload.');
+
+    await page.reload();
+
+    const formAfterReload = page.locator('#form');
+    test.skip(!(await formAfterReload.isVisible().catch(() => false)),
+      'Sarah has no available quarter slot in this run.');
+
+    // The bug: the field is blank again, and there's no message anywhere on
+    // the page telling the user their draft was lost.
+    await expect(page.locator('#nomineeName')).toHaveValue('');
+    await expect(page.getByText(/draft|unsaved/i)).toHaveCount(0);
+  });
+
+  test('T-43: WHAT text containing a <script> tag renders as visible plain text, never as a live element', async ({ page, request }) => {
+    const malicious = "Delivered under budget. <script>window.__xss=true;</script> Great work overall.";
+    const created = await (await request.post('/api/nominations', {
+      data: {
+        nominatorName: 'UI FortyThree Nominator', nominatorEmail: uniqueEmail('ui43-nominator'),
+        nomineeName: 'UI FortyThree Nominee', nomineeEmail: uniqueEmail('ui43-nominee'),
+        practice: 'Digital', location: 'Dublin',
+        category: 'QUALITY_AND_COMPLIANCE', coreValue: 'EXCELLENCE',
+        whatText: malicious,
+        howText: 'They showed excellence by catching every edge case before release, including this one.',
+      },
+    })).json();
+
+    await page.goto('/');
+    await switchPersona(page, 'colette');
+    await goToView(page, 'queue');
+    const row = page.locator(`tr.clickable[data-id="${created.id}"]`);
+    await expect(row).toBeVisible({ timeout: 10_000 });
+    await row.click();
+
+    // Rendered as visible text, not executed as a script element.
+    await expect(page.locator('#detail')).toContainText('<script>window.__xss=true;</script>', { timeout: 10_000 });
+    const executed = await page.evaluate(() => window.__xss);
+    expect(executed).toBeUndefined();
+  });
 });

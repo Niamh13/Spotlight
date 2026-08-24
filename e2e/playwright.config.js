@@ -1,5 +1,13 @@
 // @ts-check
+const path = require('path');
 const { defineConfig, devices } = require('@playwright/test');
+
+// cmd.exe mis-parses a forward-slash relative path like '../mvnw' as the
+// command '..' followed by a '/mvnw' switch, so build an OS-native path and
+// pick the matching wrapper script instead of hardcoding a Unix-style command.
+const mvnw = process.platform === 'win32' ? 'mvnw.cmd' : './mvnw';
+const mvnwPath = path.join(__dirname, '..', mvnw);
+const pomPath = path.join(__dirname, '..', 'pom.xml');
 
 module.exports = defineConfig({
   testDir: './tests',
@@ -22,7 +30,7 @@ module.exports = defineConfig({
   // H2 file DB + port 8099, see application-e2e.properties) so these specs
   // never touch a developer's own dev instance or its data.
   webServer: {
-    command: '../mvnw -q -f ../pom.xml spring-boot:run -Dspring-boot.run.profiles=e2e',
+    command: `"${mvnwPath}" -q -f "${pomPath}" spring-boot:run -Dspring-boot.run.profiles=e2e`,
     url: 'http://localhost:8099/api/nominations',
     timeout: 120_000,
     reuseExistingServer: !process.env.CI,

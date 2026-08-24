@@ -246,6 +246,15 @@ test.describe('E2E flows', () => {
     const hasReciprocal = (n) => (n.aiFlags || []).some((f) => f.flag === 'RECIPROCAL_NOMINATION');
     expect(hasReciprocal(first)).toBeTruthy();
     expect(hasReciprocal(second)).toBeTruthy();
+
+    // T-06: a flag never blocks a decision - a coordinator can still approve
+    // a nomination that's carrying a reciprocal flag.
+    const approved = await request.post(`/api/nominations/${nomAB.id}/approve`, {
+      data: { coordinatorEmail: 'coordinator@example.com' },
+    });
+    expect(approved.ok()).toBeTruthy();
+    const approvedBody = await approved.json();
+    expect(approvedBody.status).toBe('APPROVED');
   });
 
   // E2E-7 (reframed from the original catalog entry for accuracy): the mock

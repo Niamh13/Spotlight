@@ -10,6 +10,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
@@ -18,6 +19,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -289,6 +295,193 @@ class NominationApiBlackBoxTest {
             ResponseEntity<String> response = rest.exchange(API, HttpMethod.POST, entity, String.class);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @Nested
+    @DisplayName("BB-13 / BB-14 - quarter limit only caps the NOMINATOR, and required-field gaps by name")
+    class QuotaScopeAndFieldGaps {
+
+        @Test
+        @DisplayName("T-13: the same nominee can be nominated by three different nominators in one quarter - "
+                + "the quarter limit is scoped to the nominator, not the nominee")
+        void sameNomineeThreeDifferentNominators_allSucceed() {
+            String nominee = uniqueEmail("shared-nominee");
+
+            ResponseEntity<Map<String, Object>> first = submit(validRequest(uniqueEmail("nominator-1"), nominee));
+            ResponseEntity<Map<String, Object>> second = submit(validRequest(uniqueEmail("nominator-2"), nominee));
+            ResponseEntity<Map<String, Object>> third = submit(validRequest(uniqueEmail("nominator-3"), nominee));
+
+            assertThat(first.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(second.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(third.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        }
+
+        @Test
+        @DisplayName("T-15: a blank whatText returns 400 naming whatText specifically")
+        void blankWhatText_returns400WithWhatTextField() {
+            Map<String, Object> body = validRequest(uniqueEmail("nominator"), uniqueEmail("nominee"));
+            body.put("whatText", "");
+
+            ResponseEntity<Map<String, Object>> response = submit(body);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody()).containsKey("whatText");
+        }
+
+        @Test
+        @DisplayName("T-16: a blank howText returns 400 naming howText specifically")
+        void blankHowText_returns400WithHowTextField() {
+            Map<String, Object> body = validRequest(uniqueEmail("nominator"), uniqueEmail("nominee"));
+            body.put("howText", "");
+
+            ResponseEntity<Map<String, Object>> response = submit(body);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody()).containsKey("howText");
+        }
+
+        @Test
+        @DisplayName("T-17: a blank nomineeEmail returns 400 naming nomineeEmail specifically")
+        void blankNomineeEmail_returns400WithNomineeEmailField() {
+            Map<String, Object> body = validRequest(uniqueEmail("nominator"), uniqueEmail("nominee"));
+            body.put("nomineeEmail", "");
+
+            ResponseEntity<Map<String, Object>> response = submit(body);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody()).containsKey("nomineeEmail");
+        }
+
+        @Test
+        @DisplayName("T-18: the nominator identity in the response matches exactly what was submitted - "
+                + "there's no server-side \"current user\" substitution to go wrong")
+        void nominatorIdentity_reflectsSubmittedValuesExactly() {
+            String nominatorEmail = uniqueEmail("nominator");
+            Map<String, Object> body = validRequest(nominatorEmail, uniqueEmail("nominee"));
+            body.put("nominatorName", "Exact Nominator Name");
+
+            ResponseEntity<Map<String, Object>> response = submit(body);
+
+            assertThat(response.getBody()).containsEntry("nominatorName", "Exact Nominator Name");
+            assertThat(response.getBody()).containsEntry("nominatorEmail", nominatorEmail);
+        }
+
+        @Test
+        @DisplayName("T-45: whitespace-only whatText is treated as blank, same as an empty string")
+        void whitespaceOnlyWhatText_returns400SameAsBlank() {
+            Map<String, Object> body = validRequest(uniqueEmail("nominator"), uniqueEmail("nominee"));
+            body.put("whatText", "   \n\t  ");
+
+            ResponseEntity<Map<String, Object>> response = submit(body);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody()).containsKey("whatText");
+        }
+    }
+
+    @Nested
+    @DisplayName("BB-15 - audit log has no mutation endpoint")
+    class AuditLogImmutability {
+
+        @Test
+        @DisplayName("T-25: there is no PUT or DELETE on /audit-log - nothing in the public API can alter "
+                + "an existing entry")
+        void auditLogPath_hasNoMutationVerb() {
+            Map<String, Object> submission = validRequest(uniqueEmail("nominator"), uniqueEmail("nominee"));
+            String id = (String) submit(submission).getBody().get("id");
+            String auditPath = API + "/" + id + "/audit-log";
+
+            ResponseEntity<String> putResponse = rest.exchange(
+                    auditPath, HttpMethod.PUT, new HttpEntity<>(Map.of()), String.class);
+            ResponseEntity<String> deleteResponse = rest.exchange(
+                    auditPath, HttpMethod.DELETE, HttpEntity.EMPTY, String.class);
+
+            assertThat(putResponse.getStatusCode().is2xxSuccessful()).isFalse();
+            assertThat(deleteResponse.getStatusCode().is2xxSuccessful()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("BB-16 - concurrent decisions on the same nomination")
+    class ConcurrentDecisions {
+
+        @Test
+        @DisplayName("T-39 (BUG, pinned as regression): two simultaneous approve calls on the same pending "
+                + "nomination BOTH currently succeed with 200 OK, instead of the second being rejected the way "
+                + "BB-6's sequential double-approve is (409 CONFLICT). Root cause: NominationService.approve() "
+                + "reads the nomination, checks its status, then writes - with no @Version/optimistic lock and "
+                + "no row-level lock, two threads can both pass the PENDING_REVIEW check before either writes. "
+                + "BB-6 only proves the sequential case is guarded; it never exercised a real race. This test "
+                + "pins the CURRENT (buggy) behavior so a fix - the race starting to correctly reject one of the "
+                + "two - shows up here as a welcome failure, matching this suite's UI-1a convention.")
+        void simultaneousApprove_bothCurrentlySucceed() throws Exception {
+            Map<String, Object> submission = validRequest(uniqueEmail("nominator"), uniqueEmail("nominee"));
+            String id = (String) submit(submission).getBody().get("id");
+
+            Map<String, Object> approveBody = new LinkedHashMap<>();
+            approveBody.put("coordinatorEmail", "coordinator@example.com");
+
+            Callable<HttpStatusCode> callApprove =
+                    () -> post(API + "/" + id + "/approve", approveBody).getStatusCode();
+
+            ExecutorService pool = Executors.newFixedThreadPool(2);
+            try {
+                Future<HttpStatusCode> first = pool.submit(callApprove);
+                Future<HttpStatusCode> second = pool.submit(callApprove);
+
+                List<HttpStatusCode> results =
+                        List.of(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS));
+
+                long successCount = results.stream().filter(HttpStatusCode::is2xxSuccessful).count();
+                assertThat(successCount)
+                        .as("both concurrent approve calls currently win - results were: %s", results)
+                        .isEqualTo(2);
+            } finally {
+                pool.shutdownNow();
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("BB-17 - text content is stored and returned exactly, never executed or corrupted")
+    class TextContentFidelity {
+
+        @Test
+        @DisplayName("T-43: WHAT text containing a <script> tag is stored and returned as literal text, "
+                + "never stripped or transformed - the app.js render layer, not the API, is responsible for "
+                + "escaping it on display")
+        void scriptTagInWhatText_storedAndReturnedAsLiteralText() {
+            String malicious = "Delivered under budget. <script>alert('xss')</script> Great work overall.";
+            Map<String, Object> body = validRequest(uniqueEmail("nominator"), uniqueEmail("nominee"));
+            body.put("whatText", malicious);
+
+            ResponseEntity<Map<String, Object>> submitResponse = submit(body);
+            assertThat(submitResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            String id = (String) submitResponse.getBody().get("id");
+
+            ResponseEntity<Map<String, Object>> fetched = get(API + "/" + id);
+
+            assertThat(fetched.getBody()).containsEntry("whatText", malicious);
+        }
+
+        @Test
+        @DisplayName("T-44: emoji and non-Latin characters in WHAT/HOW round-trip exactly")
+        void emojiAndNonLatinText_roundTripsExactly() {
+            String what = "Shipped the release early 🎉🚀 - team said 谢谢 and merci beaucoup, très bien joué!";
+            String how = "Über engagiert, showed real drive withño hesitación at all, 100% commitment.";
+            Map<String, Object> body = validRequest(uniqueEmail("nominator"), uniqueEmail("nominee"));
+            body.put("whatText", what);
+            body.put("howText", how);
+
+            ResponseEntity<Map<String, Object>> submitResponse = submit(body);
+            assertThat(submitResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            String id = (String) submitResponse.getBody().get("id");
+
+            ResponseEntity<Map<String, Object>> fetched = get(API + "/" + id);
+
+            assertThat(fetched.getBody()).containsEntry("whatText", what);
+            assertThat(fetched.getBody()).containsEntry("howText", how);
         }
     }
 }
