@@ -24,3 +24,8 @@ Feature: Coordinator acceptance criteria (Epic 3 - review, Epic 6 - dashboard)
     Given a nomination exists that is pending review
     When I approve it
     Then the audit log for that nomination shows my email, the action, and a timestamp
+
+  Scenario: UAT-12 - a nomination for someone outside the user directory is flagged, not blocked
+    Given a nomination exists for a nominee who is not in the user directory
+    When I look at that nomination
+    Then it already carries a NOMINEE_NOT_ACTIVE_EMPLOYEE flag with a reason I can read directly

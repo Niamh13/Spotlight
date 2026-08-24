@@ -15,7 +15,6 @@ Feature: Known-gap acceptance criteria
     Then a comms record exists with the exact subject and body that would be sent
     But nothing in the API response claims an email was actually delivered
 
-  Scenario: UAT-11 - EmployeeStatusCheck never flags anyone yet (no HR feed wired up)
-    Given a nomination exists for any nominee, active or not
-    When the nomination is tagged
-    Then it never carries a NOMINEE_NOT_ACTIVE_EMPLOYEE flag
+  # UAT-11 used to live here ("EmployeeStatusCheck never flags anyone yet") -
+  # it moved to coordinator.feature as UAT-12 once a real user directory made
+  # that a genuine, assertable behavior instead of an acknowledged gap.

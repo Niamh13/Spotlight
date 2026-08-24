@@ -7,7 +7,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Wires Cucumber's step definitions into the same Spring context style as
- * the black-box tests: a real app on a random port, isolated H2 (no demo
+ * the black-box tests: a real app on a random port, isolated MySQL (no demo
  * seed data - each scenario builds its own fixtures), mock AI evaluator.
  * One class, picked up automatically by cucumber-spring - no other file
  * references it directly.

@@ -1,5 +1,10 @@
 package com.version1.recognition.blackbox;
 
+import com.version1.recognition.nomination.Role;
+import com.version1.recognition.nomination.User;
+import com.version1.recognition.nomination.UserRepository;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,8 +36,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Black-box tests against the public REST API only. No source-code knowledge
  * used or assumed beyond the documented request/response shapes: every
  * assertion here treats /api/nominations/* as a spec, not an implementation.
- * Runs a real Spring context on a random port, against an isolated in-memory
- * H2 database (see application-blackbox.properties) with no demo seed data,
+ * Runs a real Spring context on a random port, against an isolated MySQL
+ * database (see application-blackbox.properties) with no demo seed data,
  * so scenarios build their own fixtures and don't depend on wall-clock-quarter
  * alignment with any seeded rows.
  *
@@ -46,6 +51,20 @@ class NominationApiBlackBoxTest {
 
     @Autowired
     private TestRestTemplate rest;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    // The blackbox profile's Spring context (and its in-memory DB) is cached
+    // and reused across every test method in this class, so this has to be
+    // idempotent - an unconditional save() would violate the unique email
+    // constraint from the second test method onward.
+    @BeforeEach
+    void seedCoordinatorFixture() {
+        if (userRepository.findByEmailIgnoreCase("coordinator@example.com").isEmpty()) {
+            userRepository.save(new User("Coordinator", "coordinator@example.com", Role.COORDINATOR, null));
+        }
+    }
 
     /** Builds a valid nomination request body with unique emails per call, so
      * quarter-limit state from one test never leaks into another. */
@@ -131,6 +150,22 @@ class NominationApiBlackBoxTest {
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
             assertThat(response.getBody()).containsKey("reason");
+        }
+
+        @Test
+        @DisplayName("BB-23: approve with a coordinatorEmail unknown to the user directory returns 400, "
+                + "not a silent success")
+        void approveWithUnknownCoordinator_returns400() {
+            Map<String, Object> submission = validRequest(uniqueEmail("nominator"), uniqueEmail("nominee"));
+            String id = (String) submit(submission).getBody().get("id");
+
+            Map<String, Object> approveBody = new LinkedHashMap<>();
+            approveBody.put("coordinatorEmail", uniqueEmail("not-a-coordinator"));
+
+            ResponseEntity<Map<String, Object>> response = post(API + "/" + id + "/approve", approveBody);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody()).containsKey("error");
         }
     }
 

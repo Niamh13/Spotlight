@@ -53,12 +53,22 @@ class NominationServiceTest {
     @Mock
     private NominationEvaluator evaluator;
 
+    @Mock
+    private UserRepository userRepository;
+
     private NominationService service;
 
     @BeforeEach
     void setUp() {
-        service = new NominationService(repository, auditLogRepository, notificationService, taggingService, evaluator);
+        service = new NominationService(
+                repository, auditLogRepository, notificationService, taggingService, evaluator, userRepository);
         lenient().when(repository.save(any(Nomination.class))).thenAnswer(inv -> inv.getArgument(0));
+        // Shared, lenient: every existing approve/reject/requestResubmission
+        // test uses this literal coordinator email and doesn't itself care
+        // about the coordinator-lookup behavior - only CoordinatorValidation
+        // below overrides this stub to test the lookup itself.
+        lenient().when(userRepository.findByEmailIgnoreCase("coordinator@example.com"))
+                .thenReturn(Optional.of(new User("Coordinator", "coordinator@example.com", Role.COORDINATOR, null)));
     }
 
     private NominationRequest request(String nominatorEmail, String nomineeEmail, UUID originalNominationId) {
@@ -282,6 +292,75 @@ class NominationServiceTest {
     }
 
     @Nested
+    @DisplayName("approve() / reject() / requestResubmission() - coordinator validation")
+    class CoordinatorValidation {
+
+        @Test
+        @DisplayName("approve() with an email unknown to the user directory throws CoordinatorNotFoundException, "
+                + "before touching the nomination")
+        void approveUnknownCoordinator_throws() {
+            when(userRepository.findByEmailIgnoreCase("nobody@example.com")).thenReturn(Optional.empty());
+
+            ApproveRequest req = new ApproveRequest();
+            req.setCoordinatorEmail("nobody@example.com");
+
+            assertThatThrownBy(() -> service.approve(UUID.randomUUID(), req))
+                    .isInstanceOf(CoordinatorNotFoundException.class);
+
+            verify(repository, never()).findById(any());
+            verify(notificationService, never()).sendApprovalComms(any(), any());
+            verify(auditLogRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("approve() with a known EMPLOYEE-role (not COORDINATOR) email throws CoordinatorNotFoundException")
+        void approveKnownButNotCoordinator_throws() {
+            when(userRepository.findByEmailIgnoreCase("sarah.murphy@version1.com"))
+                    .thenReturn(Optional.of(new User("Sarah Murphy", "sarah.murphy@version1.com", Role.EMPLOYEE, null)));
+
+            ApproveRequest req = new ApproveRequest();
+            req.setCoordinatorEmail("sarah.murphy@version1.com");
+
+            assertThatThrownBy(() -> service.approve(UUID.randomUUID(), req))
+                    .isInstanceOf(CoordinatorNotFoundException.class);
+
+            verify(auditLogRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("reject() with an unknown coordinator email throws, before touching the nomination")
+        void rejectUnknownCoordinator_throws() {
+            when(userRepository.findByEmailIgnoreCase("nobody@example.com")).thenReturn(Optional.empty());
+
+            ReviewDecisionRequest req = new ReviewDecisionRequest();
+            req.setCoordinatorEmail("nobody@example.com");
+            req.setReason("Not enough detail");
+
+            assertThatThrownBy(() -> service.reject(UUID.randomUUID(), req))
+                    .isInstanceOf(CoordinatorNotFoundException.class);
+
+            verify(repository, never()).findById(any());
+            verify(notificationService, never()).sendDeclineComms(any(), any());
+        }
+
+        @Test
+        @DisplayName("requestResubmission() with an unknown coordinator email throws, before touching the nomination")
+        void requestResubmissionUnknownCoordinator_throws() {
+            when(userRepository.findByEmailIgnoreCase("nobody@example.com")).thenReturn(Optional.empty());
+
+            ReviewDecisionRequest req = new ReviewDecisionRequest();
+            req.setCoordinatorEmail("nobody@example.com");
+            req.setReason("Needs a number");
+
+            assertThatThrownBy(() -> service.requestResubmission(UUID.randomUUID(), req))
+                    .isInstanceOf(CoordinatorNotFoundException.class);
+
+            verify(repository, never()).findById(any());
+            verify(notificationService, never()).sendResubmissionRequestedComms(any(), any());
+        }
+    }
+
+    @Nested
     @DisplayName("approve()")
     class Approve {
 
@@ -340,7 +419,10 @@ class NominationServiceTest {
             UUID id = UUID.randomUUID();
             when(repository.findById(id)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.approve(id, new ApproveRequest()))
+            ApproveRequest req = new ApproveRequest();
+            req.setCoordinatorEmail("coordinator@example.com");
+
+            assertThatThrownBy(() -> service.approve(id, req))
                     .isInstanceOf(NoSuchElementException.class);
         }
     }

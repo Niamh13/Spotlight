@@ -11,6 +11,24 @@ jobs:
     name: Java tests (unit, black-box, UAT)
     runs-on: ubuntu-latest
 
+    # The app talks to MySQL now (see application*.properties), not the old
+    # in-memory H2 - the black-box/UAT tiers need a real server to connect to,
+    # same as running them locally. Root password matches the mysql.username/
+    # mysql.password and MYSQL_USERNAME/MYSQL_PASSWORD defaults baked into
+    # pom.xml and application.properties, so no extra config is needed below.
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
       - uses: actions/checkout@v4
 
@@ -22,8 +40,9 @@ jobs:
           cache: maven
 
       # Runs everything Maven's test phase picks up: JUnit 5 unit tests,
-      # the black-box API suite (NominationApiBlackBoxTest, isolated H2),
-      # and the UAT tier (RunCucumberTest, reusing the same isolated profile).
+      # the black-box API suite (NominationApiBlackBoxTest, against the
+      # mysql service above), and the UAT tier (RunCucumberTest, reusing the
+      # same isolated profile).
       - name: Run mvn test
         run: ./mvnw -B test
 
@@ -47,6 +66,22 @@ jobs:
   e2e-tests:
     name: E2E and UI/GUI (Playwright)
     runs-on: ubuntu-latest
+
+    # The 'e2e' profile (application-e2e.properties) points at MySQL too, in
+    # its own recognitiondb_e2e database on the same server - see the
+    # java-tests service above for why this is here instead of H2.
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
       - uses: actions/checkout@v4

@@ -33,4 +33,11 @@
     <!-- Which of Version 1's six core values the nomination demonstrates. -->
     <include file="db/changelog/011-add-core-value.xml" relativeToChangelogFile="false"/>
 
+    <!-- Real user directory: employees and coordinators, replacing the
+         frontend-only persona list. -->
+    <include file="db/changelog/012-create-users-table.xml" relativeToChangelogFile="false"/>
+
+    <!-- Demo data - see the same context="demo" note as changeset 005 above. -->
+    <include file="db/changelog/013-seed-demo-users.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>

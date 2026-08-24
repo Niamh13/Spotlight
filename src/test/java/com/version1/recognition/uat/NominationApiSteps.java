@@ -1,5 +1,10 @@
 package com.version1.recognition.uat;
 
+import com.version1.recognition.nomination.Role;
+import com.version1.recognition.nomination.User;
+import com.version1.recognition.nomination.UserRepository;
+
+import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -31,11 +36,25 @@ public class NominationApiSteps {
     @Autowired
     private TestRestTemplate rest;
 
+    @Autowired
+    private UserRepository userRepository;
+
     private String nominatorEmail;
     private String nominationId;
     private ResponseEntity<Map<String, Object>> lastResponse;
     private String whatText;
     private String howText;
+
+    // The blackbox profile's Spring context (and its in-memory DB) is cached
+    // and reused across the whole Cucumber run - same lifecycle as
+    // NominationApiBlackBoxTest - so this must be idempotent, not a plain
+    // save() on every scenario.
+    @Before
+    public void seedCoordinatorFixture() {
+        if (userRepository.findByEmailIgnoreCase(COORDINATOR_EMAIL).isEmpty()) {
+            userRepository.save(new User("Coordinator", COORDINATOR_EMAIL, Role.COORDINATOR, null));
+        }
+    }
 
     @SuppressWarnings("unchecked")
     private ResponseEntity<Map<String, Object>> post(String path, Object body) {
@@ -142,9 +161,21 @@ public class NominationApiSteps {
         aNominationExistsPendingReview();
     }
 
-    @Given("a nomination exists for any nominee, active or not")
-    public void aNominationExistsForAnyNominee() {
-        aNominationExistsPendingReview();
+    @Given("a nomination exists for a nominee who is not in the user directory")
+    public void aNominationExistsForANomineeNotInTheUserDirectory() {
+        // Mechanically identical to aNominationExistsPendingReview() - every
+        // uniqueEmail()-generated nominee is, by construction, never a
+        // seeded User row - but kept as its own step so this scenario reads
+        // self-documentingly.
+        ResponseEntity<Map<String, Object>> response = post(API, submissionBody(
+                uniqueEmail("uat-nominator"), uniqueEmail("uat-unlisted-nominee"),
+                "They redesigned the deployment pipeline from scratch, cutting release "
+                        + "time from two days down to twenty minutes for the whole team.",
+                "They showed real drive, mapping every failure mode themselves without "
+                        + "being asked and fixing each one before it caused an incident.",
+                null));
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        nominationId = String.valueOf(response.getBody().get("id"));
     }
 
     // ---------- When ----------
@@ -384,10 +415,13 @@ public class NominationApiSteps {
         assertThat(lastResponse.getBody()).doesNotContainKey("emailSent");
     }
 
-    @Then("it never carries a NOMINEE_NOT_ACTIVE_EMPLOYEE flag")
-    public void itNeverCarriesANomineeNotActiveEmployeeFlag() {
+    @Then("it already carries a NOMINEE_NOT_ACTIVE_EMPLOYEE flag with a reason I can read directly")
+    public void itAlreadyCarriesANomineeNotActiveEmployeeFlag() {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> flags = (List<Map<String, Object>>) lastResponse.getBody().get("aiFlags");
-        assertThat(flags).noneSatisfy(f -> assertThat(f.get("flag")).isEqualTo("NOMINEE_NOT_ACTIVE_EMPLOYEE"));
+        assertThat(flags).anySatisfy(f -> {
+            assertThat(f.get("flag")).isEqualTo("NOMINEE_NOT_ACTIVE_EMPLOYEE");
+            assertThat(String.valueOf(f.get("reason"))).isNotBlank();
+        });
     }
 }

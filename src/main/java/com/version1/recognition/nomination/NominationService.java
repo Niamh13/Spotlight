@@ -30,17 +30,20 @@ public class NominationService {
     private final NotificationService notificationService;
     private final TaggingService taggingService;
     private final NominationEvaluator evaluator;
+    private final UserRepository userRepository;
 
     public NominationService(NominationRepository repository,
                               AuditLogRepository auditLogRepository,
                               NotificationService notificationService,
                               TaggingService taggingService,
-                              NominationEvaluator evaluator) {
+                              NominationEvaluator evaluator,
+                              UserRepository userRepository) {
         this.repository = repository;
         this.auditLogRepository = auditLogRepository;
         this.notificationService = notificationService;
         this.taggingService = taggingService;
         this.evaluator = evaluator;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -145,6 +148,7 @@ public class NominationService {
      * in full.
      */
     public Nomination approve(UUID id, ApproveRequest request) {
+        requireCoordinator(request.getCoordinatorEmail());
         Nomination nomination = requirePendingReview(id);
 
         nomination.setStatus(NominationStatus.APPROVED);
@@ -179,6 +183,7 @@ public class NominationService {
      * helps nobody.
      */
     public Nomination reject(UUID id, ReviewDecisionRequest request) {
+        requireCoordinator(request.getCoordinatorEmail());
         Nomination nomination = requirePendingReview(id);
 
         nomination.setStatus(NominationStatus.REJECTED);
@@ -206,6 +211,7 @@ public class NominationService {
      * another of their quarterly nominations.
      */
     public Nomination requestResubmission(UUID id, ReviewDecisionRequest request) {
+        requireCoordinator(request.getCoordinatorEmail());
         Nomination nomination = requirePendingReview(id);
 
         nomination.setStatus(NominationStatus.NEEDS_RESUBMISSION);
@@ -298,6 +304,23 @@ public class NominationService {
 
     private boolean equalsIgnoreCase(String a, String b) {
         return a != null && b != null && a.trim().equalsIgnoreCase(b.trim());
+    }
+
+    /**
+     * There's no login (see the "no login feature" scope note in the User
+     * class), so this is an identity lookup, not authentication: is
+     * coordinatorEmail a real, known COORDINATOR? Anyone can still claim to
+     * be them by typing their email - this just stops a typo or an
+     * EMPLOYEE-role email from silently going through as a decision.
+     */
+    private void requireCoordinator(String coordinatorEmail) {
+        User user = userRepository.findByEmailIgnoreCase(coordinatorEmail)
+                .orElseThrow(() -> new CoordinatorNotFoundException(
+                        "No coordinator found for email " + coordinatorEmail + "."));
+        if (user.getRole() != Role.COORDINATOR) {
+            throw new CoordinatorNotFoundException(
+                    coordinatorEmail + " is registered but is not a coordinator.");
+        }
     }
 
     private Nomination requirePendingReview(UUID id) {

@@ -13,24 +13,25 @@ conclusions from it.
 
 ## Running it
 
-Needs a JDK (17+) and Maven. Nothing else — no Node, no database to install,
-no API key required.
+Needs a JDK (17+), Maven, and a MySQL server running locally on the default
+port (3306) — no Node, no API key required.
 
 ```bash
 mvn spring-boot:run
 ```
 
-That is genuinely the whole setup. **You do not need an API key to run or test
-this** — see [AI evaluation](#using-the-real-groq-evaluator) for what happens
-without one.
+With no further setup this connects to `jdbc:mysql://localhost:3306/recognitiondb`
+as `root`/`root` (creating the database on first run) and runs Liquibase
+automatically. Override any of it with the `MYSQL_URL`, `MYSQL_USERNAME` or
+`MYSQL_PASSWORD` environment variables — see `application.properties`.
+
+**You do not need an API key to run or test this** — see
+[AI evaluation](#using-the-real-groq-evaluator) for what happens without one.
 
 Then open **http://localhost:8080**.
 
-The H2 console is at `http://localhost:8080/h2-console` — JDBC URL
-`jdbc:h2:file:./data/recognitiondb;AUTO_SERVER=TRUE`, user `sa`, no password.
-
-The database file lives in `data/` and is gitignored. Delete it and restart to
-rebuild from migrations, seed data included.
+To rebuild from scratch, drop the `recognitiondb` database and restart —
+Liquibase recreates it from the migrations below, seed data included.
 
 ### Demo data
 
@@ -218,7 +219,7 @@ defaults to `openai/gpt-oss-20b`; override with `groq.api.model`.
 ## Database migrations (Liquibase)
 
 Schema is managed by Liquibase, not Hibernate auto-DDL. Migrations live in
-`src/main/resources/db/changelog/`. **Twelve changesets** as of this writing:
+`src/main/resources/db/changelog/`. **Thirteen changesets** as of this writing:
 
 | | |
 |---|---|
@@ -231,6 +232,8 @@ Schema is managed by Liquibase, not Hibernate auto-DDL. Migrations live in
 | `009` | demo data rebalanced across quarters |
 | `010` | messages moved to their own table |
 | `011` | core value |
+| `012` | users table (employee/coordinator directory) |
+| `013` | demo users (`context="demo"`) |
 
 Each has an explicit `<rollback>` block. The app runs Liquibase automatically
 on startup; the CLI commands below test migrations independently of it.
@@ -244,8 +247,6 @@ mvn liquibase:rollback -Dliquibase.rollbackCount=1   # undo the most recent chan
 **Rolling back is by count, newest first.** Check `liquibase:status` to see
 what you are actually undoing rather than assuming a number — the list above
 changes as migrations are added.
-
-To rebuild from scratch, delete `data/` and restart the app.
 
 Seed data is tagged `context="demo"` and switched on by
 `spring.liquibase.contexts=demo` in `application.properties`. Remove that line

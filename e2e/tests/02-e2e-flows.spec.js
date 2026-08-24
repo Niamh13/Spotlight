@@ -8,8 +8,11 @@
 // persona through the UI. Run order within this file matters and is
 // intentional - see the comment above each test.
 //
-// `npm test` runs `pretest` first (deletes the e2e H2 file DB), so every full
-// run starts from the same seeded-demo baseline regardless of prior runs.
+// The e2e MySQL database (recognitiondb_e2e) is persistent, not recreated per
+// run, so specs can't assume a fresh seeded-demo baseline - they build their
+// own fixtures via the API instead (see the persona/data strategy above). CI
+// gets a fresh database anyway, since the mysql service container in
+// ci.yml starts empty on every job.
 
 const { test, expect } = require('@playwright/test');
 const { switchPersona, goToView, fillSubmissionForm, uniqueEmail } = require('./helpers');
@@ -248,9 +251,11 @@ test.describe('E2E flows', () => {
     expect(hasReciprocal(second)).toBeTruthy();
 
     // T-06: a flag never blocks a decision - a coordinator can still approve
-    // a nomination that's carrying a reciprocal flag.
+    // a nomination that's carrying a reciprocal flag. Must be Colette's real
+    // seeded email - the e2e profile's user directory only has the 4 real
+    // personas, not a generic placeholder coordinator like blackbox/UAT use.
     const approved = await request.post(`/api/nominations/${nomAB.id}/approve`, {
-      data: { coordinatorEmail: 'coordinator@example.com' },
+      data: { coordinatorEmail: 'colette.lynch@version1.com' },
     });
     expect(approved.ok()).toBeTruthy();
     const approvedBody = await approved.json();

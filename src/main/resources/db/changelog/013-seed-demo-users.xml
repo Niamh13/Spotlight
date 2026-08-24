@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <!--
+        Backs the four frontend personas (see app.js's PERSONAS array) with
+        real rows, so switching persona in the UI now corresponds to an
+        actual known user rather than a purely client-side object. Values
+        copied verbatim from app.js. Fixed UUIDs for the same reason as the
+        demo nominations - stable across machines.
+    -->
+    <changeSet id="013-seed-demo-users" author="team" context="demo">
+        <insert tableName="users">
+            <column name="id" value="c3000001-0000-4000-8000-000000000001"/>
+            <column name="name" value="Calvin Ho"/>
+            <column name="email" value="calvin.ho@version1.com"/>
+            <column name="role" value="EMPLOYEE"/>
+            <column name="title" value="Consultant &#183; Data &amp; AI"/>
+        </insert>
+        <insert tableName="users">
+            <column name="id" value="c3000002-0000-4000-8000-000000000002"/>
+            <column name="name" value="Jamie Doyle"/>
+            <column name="email" value="jamie.doyle@version1.com"/>
+            <column name="role" value="EMPLOYEE"/>
+            <column name="title" value="Engineer &#183; Cloud Engineering"/>
+        </insert>
+        <insert tableName="users">
+            <column name="id" value="c3000003-0000-4000-8000-000000000003"/>
+            <column name="name" value="Sarah Murphy"/>
+            <column name="email" value="sarah.murphy@version1.com"/>
+            <column name="role" value="EMPLOYEE"/>
+            <column name="title" value="Lead Consultant &#183; Data &amp; AI"/>
+        </insert>
+        <insert tableName="users">
+            <column name="id" value="c3000004-0000-4000-8000-000000000004"/>
+            <column name="name" value="Colette Lynch"/>
+            <column name="email" value="colette.lynch@version1.com"/>
+            <column name="role" value="COORDINATOR"/>
+            <column name="title" value="HR &#183; Recognition coordinator"/>
+        </insert>
+
+        <rollback>
+            <delete tableName="users">
+                <where>id LIKE 'c30000%'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

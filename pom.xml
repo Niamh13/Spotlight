@@ -20,6 +20,16 @@
     <properties>
         <java.version>17</java.version>
         <cucumber.version>7.18.1</cucumber.version>
+        <!-- Placeholder local defaults for the standalone liquibase-maven-plugin
+             below (mvn liquibase:update/rollback and the dropAll binding) -
+             override with -Dmysql.username=... -Dmysql.password=... rather than
+             editing these, so a real credential never lands in this committed
+             file. The app itself reads MYSQL_USERNAME/MYSQL_PASSWORD env vars
+             instead (see application*.properties) - these two are only for the
+             plugin's own classloader, which can't see env-var placeholders the
+             same way. -->
+        <mysql.username>root</mysql.username>
+        <mysql.password>root</mysql.password>
     </properties>
 
     <dependencies>
@@ -36,8 +46,8 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -102,11 +112,46 @@
                 <version>4.27.0</version>
                 <configuration>
                     <changeLogFile>src/main/resources/db/changelog/db.changelog-master.xml</changeLogFile>
-                    <url>jdbc:h2:file:./data/recognitiondb;AUTO_SERVER=TRUE</url>
-                    <driver>org.h2.Driver</driver>
-                    <username>sa</username>
-                    <password></password>
+                    <url>jdbc:mysql://localhost:3306/recognitiondb?createDatabaseIfNotExist=true&amp;useSSL=false&amp;allowPublicKeyRetrieval=true&amp;serverTimezone=UTC</url>
+                    <driver>com.mysql.cj.jdbc.Driver</driver>
+                    <username>${mysql.username}</username>
+                    <password>${mysql.password}</password>
                 </configuration>
+                <executions>
+                    <!-- The black-box/UAT tier shares one cached Spring context (and DB)
+                         across the whole test run - unlike H2's old in-memory instance,
+                         a persistent MySQL server keeps row data between `mvn test` runs.
+                         This drops and lets Spring Boot's own Liquibase run recreate the
+                         blackbox schema fresh, once, before tests start - the MySQL
+                         equivalent of the old jdbc:h2:mem:...;DB_CLOSE_DELAY=-1 behavior. -->
+                    <execution>
+                        <id>reset-blackbox-database</id>
+                        <phase>process-test-classes</phase>
+                        <goals>
+                            <goal>dropAll</goal>
+                        </goals>
+                        <configuration>
+                            <url>jdbc:mysql://localhost:3306/recognitiondb_blackbox?createDatabaseIfNotExist=true&amp;useSSL=false&amp;allowPublicKeyRetrieval=true&amp;serverTimezone=UTC</url>
+                            <driver>com.mysql.cj.jdbc.Driver</driver>
+                            <username>${mysql.username}</username>
+                            <password>${mysql.password}</password>
+                        </configuration>
+                    </execution>
+                </executions>
+                <!-- Maven plugins run on their own classloader, not the project's -
+                     the driver has to be declared here too, or both this dropAll
+                     execution and standalone `mvn liquibase:update`/`rollback` fail
+                     to find com.mysql.cj.jdbc.Driver. -->
+                <dependencies>
+                    <dependency>
+                        <groupId>com.mysql</groupId>
+                        <artifactId>mysql-connector-j</artifactId>
+                        <!-- Matches the version spring-boot-starter-parent:3.3.0's BOM
+                             manages for the project's own runtime dependency above -
+                             confirmed via `mvn dependency:tree -Dincludes=com.mysql:mysql-connector-j`. -->
+                        <version>8.3.0</version>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>

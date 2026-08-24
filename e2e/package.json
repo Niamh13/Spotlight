@@ -4,15 +4,12 @@
   "private": true,
   "description": "Playwright E2E and UI/GUI specs for the Spotlight Star Award platform, driving the real app on the isolated 'e2e' Spring profile.",
   "scripts": {
-    "clean-db": "rimraf --glob \"../data/e2e-testdb.*\"",
-    "pretest": "npm run clean-db",
     "test": "playwright test",
-    "test:headed": "npm run clean-db && playwright test --headed",
-    "test:ui": "npm run clean-db && playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
     "report": "playwright show-report"
   },
   "devDependencies": {
-    "@playwright/test": "^1.48.0",
-    "rimraf": "^6.1.3"
+    "@playwright/test": "^1.48.0"
   }
 }

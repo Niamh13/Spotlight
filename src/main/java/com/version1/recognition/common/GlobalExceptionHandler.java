@@ -1,5 +1,6 @@
 package com.version1.recognition.common;
 
+import com.version1.recognition.nomination.CoordinatorNotFoundException;
 import com.version1.recognition.nomination.InvalidReviewStateException;
 import com.version1.recognition.nomination.QuarterLimitReachedException;
 import com.version1.recognition.nomination.SelfNominationException;
@@ -24,6 +25,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(SelfNominationException.class)
     public ResponseEntity<Map<String, String>> handleSelfNomination(SelfNominationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+    }
+
+    // 400, same family as SelfNominationException: the request is well-formed,
+    // the coordinatorEmail just doesn't identify a valid actor for this action.
+    @ExceptionHandler(CoordinatorNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleCoordinatorNotFound(CoordinatorNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
     }
 

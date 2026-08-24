@@ -2,6 +2,7 @@ package com.version1.recognition.nomination.check;
 
 import com.version1.recognition.nomination.AiFlag;
 import com.version1.recognition.nomination.Nomination;
+import com.version1.recognition.nomination.UserRepository;
 
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -10,23 +11,29 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Is the nominee still an active employee?
+ * Is the nominee a known user in the platform's own directory?
  * <p>
- * <b>Placeholder - always passes.</b> Answering this needs an HR source of truth
- * (Workday, an AD group, a starters-and-leavers feed) and there isn't one wired
- * up yet. Rather than guess from the email domain - which would quietly mark
- * contractors and anyone mid-domain-migration as leavers - it returns empty
- * every time and is honest about why.
- * <p>
- * It ships now rather than later so the shape of the answer is already agreed:
- * when the HR feed arrives, this file gets a client injected and a lookup in
- * {@link #evaluate}, and nothing else in the application changes. The flag it
- * would raise, {@link AiFlag#NOMINEE_NOT_ACTIVE_EMPLOYEE}, already exists and is
- * already rendered by the dashboard.
+ * This is a narrower question than "is this person an active employee" - the
+ * directory is only ever as complete as whoever has been seeded or created
+ * here, not a live HR feed (Workday, an AD group, a starters-and-leavers
+ * feed). Absence from this table is a signal worth a coordinator's
+ * attention, not proof someone has left, so - like every other check in this
+ * package - it raises {@link AiFlag#NOMINEE_NOT_ACTIVE_EMPLOYEE} as an
+ * advisory flag and never blocks the submission itself. See
+ * NominationService.submit() for why identity checks stay advisory rather
+ * than hard-blocking: the directory only has a handful of seeded rows, and
+ * hard-blocking on it would mean nobody outside those rows could ever be
+ * nominated.
  */
 @Component
 @Order(60)
 public class EmployeeStatusCheck implements NominationCheck {
+
+    private final UserRepository userRepository;
+
+    public EmployeeStatusCheck(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     @Override
     public AiFlag flag() {
@@ -35,8 +42,17 @@ public class EmployeeStatusCheck implements NominationCheck {
 
     @Override
     public Optional<String> evaluate(Nomination nomination, List<Nomination> allNominations) {
-        // No HR data source yet - see the class comment. Deliberately not
-        // guessing from the email domain.
-        return Optional.empty();
+        String nomineeEmail = nomination.getNomineeEmail();
+        if (nomineeEmail == null || nomineeEmail.isBlank()) {
+            return Optional.empty();
+        }
+
+        boolean known = userRepository.findByEmailIgnoreCase(nomineeEmail.trim()).isPresent();
+        if (known) {
+            return Optional.empty();
+        }
+
+        return Optional.of("No record of " + nomineeEmail + " in the user directory - "
+                + "double check this is the right address before deciding.");
     }
 }
