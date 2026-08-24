@@ -1,5 +1,15 @@
 package com.version1.recognition.nomination;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
 import com.version1.recognition.nomination.comms.NotificationService;
 import com.version1.recognition.nomination.comms.SentEmail;
 import com.version1.recognition.nomination.evaluation.AiEvaluationException;
@@ -9,16 +19,6 @@ import com.version1.recognition.nomination.evaluation.NominationEvaluator;
 import com.version1.recognition.nomination.web.ApproveRequest;
 import com.version1.recognition.nomination.web.NominationRequest;
 import com.version1.recognition.nomination.web.ReviewDecisionRequest;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class NominationService {
@@ -279,16 +279,43 @@ public class NominationService {
      * exemption, asking someone for more detail would lock them out of answering.
      */
     private void requireNoNominationThisQuarter(NominationRequest request) {
+        Quarter quarter = Quarter.current();
+
+        List<Nomination> all = repository.findAll();
+
+        List<Nomination> mineThisQuarter = all.stream()
+                .filter(n -> n.getSubmittedAt() != null)
+                .filter(n -> quarter.contains(n.getSubmittedAt()))
+                .filter(n -> equalsIgnoreCase(n.getNominatorEmail(), request.getNominatorEmail()))
+                .collect(Collectors.toList());
+
+        // Nothing at all may be submitted while something of theirs is still
+        // waiting on a coordinator - original or revision.
+        //
+        // This is the rule that was missing. The previous check only stopped
+        // someone revising the *same* nomination twice, so a chain walked
+        // straight past it: revise A into B, then revise B into C, then C into
+        // D, each one a different "original" and each one allowed.
+        Nomination awaiting = mineThisQuarter.stream()
+                .filter(n -> n.getStatus() == NominationStatus.PENDING_REVIEW)
+                .findFirst()
+                .orElse(null);
+
+        if (awaiting != null) {
+            throw new QuarterLimitReachedException(
+                    "You already have a nomination for " + awaiting.getNomineeName()
+                            + " waiting on a decision. You'll be able to submit again once a "
+                            + "coordinator has reviewed it.",
+                    quarter.label());
+        }
+
         if (request.getOriginalNominationId() != null) {
+            requireRevisableOriginal(request, all);
             return;
         }
 
-        Quarter quarter = Quarter.current();
-
-        Nomination existing = repository.findAll().stream()
+        Nomination existing = mineThisQuarter.stream()
                 .filter(n -> n.getOriginalNominationId() == null)
-                .filter(n -> equalsIgnoreCase(n.getNominatorEmail(), request.getNominatorEmail()))
-                .filter(n -> quarter.contains(n.getSubmittedAt()))
                 .findFirst()
                 .orElse(null);
 
@@ -305,14 +332,48 @@ public class NominationService {
         }
     }
 
+    /**
+     * A revision has to be answering something that was actually sent back.
+     * Without this, quoting any id at all would bypass the quarter limit.
+     */
+    private void requireRevisableOriginal(NominationRequest request, List<Nomination> all) {
+        // Looked up in the list already loaded rather than with a second query -
+        // one read instead of two, and it keeps this testable without stubbing
+        // findById separately.
+        Nomination original = all.stream()
+                .filter(n -> request.getOriginalNominationId().equals(n.getId()))
+                .findFirst()
+                .orElse(null);
+
+        if (original == null
+                || !equalsIgnoreCase(original.getNominatorEmail(), request.getNominatorEmail())) {
+            throw new QuarterLimitReachedException(
+                    "That nomination can't be revised - it isn't one of yours.",
+                    Quarter.current().label());
+        }
+
+        boolean invitedBack = original.getStatus() == NominationStatus.NEEDS_RESUBMISSION
+                || original.getStatus() == NominationStatus.REJECTED;
+
+        if (!invitedBack) {
+            throw new QuarterLimitReachedException(
+                    "That nomination doesn't need revising, so this would be a second "
+                            + "nomination for " + Quarter.current().label() + ".",
+                    Quarter.current().label());
+        }
+    }
+
     /** The nomination this person has already made in the current quarter, if any. */
     public Nomination findCurrentQuarterNomination(String nominatorEmail) {
         Quarter quarter = Quarter.current();
+        // The newest, not the original. A revision supersedes what it replaces,
+        // so returning the original left the form offering to revise something
+        // that had already been revised.
         return repository.findAll().stream()
-                .filter(n -> n.getOriginalNominationId() == null)
+                .filter(n -> n.getSubmittedAt() != null)
                 .filter(n -> equalsIgnoreCase(n.getNominatorEmail(), nominatorEmail))
                 .filter(n -> quarter.contains(n.getSubmittedAt()))
-                .findFirst()
+                .max(java.util.Comparator.comparing(Nomination::getSubmittedAt))
                 .orElse(null);
     }
 

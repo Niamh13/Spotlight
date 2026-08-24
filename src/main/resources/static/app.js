@@ -57,7 +57,7 @@
     { id: "stars",     label: "Star Awards",         ic: "✦", group: "Recognition",  roles: ["EMPLOYEE", "COORDINATOR"] },
     { id: "mtm",       label: "Moments that Matter", ic: "🎁", group: "Recognition", roles: ["EMPLOYEE", "COORDINATOR"] },
     { id: "queue",     label: "Review Queue",        ic: "☑", group: "Coordinator",  roles: ["COORDINATOR"], badge: "pending" },
-    { id: "ai",        label: "AI Review",           ic: "◎", group: "Coordinator",  roles: ["COORDINATOR"] },
+    { id: "ai",        label: "AI Summary",          ic: "◎", group: "Coordinator",  roles: ["COORDINATOR"] },
     { id: "quarters",  label: "Quarters",            ic: "◷", group: "Coordinator",  roles: ["COORDINATOR"] },
     { id: "activity",  label: "Activity Log",        ic: "≡", group: "Coordinator",  roles: ["COORDINATOR"] },
     { id: "dashboard", label: "Dashboard",           ic: "▦", group: "Coordinator",  roles: ["COORDINATOR"] },
@@ -940,17 +940,17 @@
     var decided = c.APPROVED + c.REJECTED + c.NEEDS_RESUBMISSION;
     var pct = total ? Math.round(decided / total * 100) : 0;
 
-    var showing = queueFilter || "PENDING_REVIEW";
-    var list = store.nominations.filter(function (n) { return n.status === showing; });
+    var showing = queueFilter || "ALL";
+    var list = showing === "ALL"
+      ? store.nominations.slice()
+      : store.nominations.filter(function (n) { return n.status === showing; });
+    var title = showing === "ALL" ? "All nominations" : ((STATUS[showing] || {}).label || showing);
 
     return '<div class="page-head"><div class="head-row"><div>' +
         "<h1>Review Queue</h1><p>Nominations waiting on a decision from you, " +
         esc(persona().name) + ".</p></div>" +
         '<div class="spacer"></div>' + roleChip("COORDINATOR") + quarterChip() + "</div></div>" +
 
-      // Progress reads off the same counts as the tiles, recomputed on every
-      // render, so a decision moves the bar immediately rather than leaving it
-      // showing the state the page was opened in.
       '<div class="progress"><div class="progress__head">' +
         "<b>" + decided + " of " + total + " reviewed</b>" +
         '<span class="muted">' + c.PENDING_REVIEW + " still awaiting a decision</span></div>" +
@@ -968,9 +968,9 @@
         "<b>The AI score is advisory.</b> It flags language patterns for your attention — " +
         "it never approves or rejects anything. Every decision below is recorded against " +
         "<b>" + esc(persona().email) + "</b> in the activity log. " +
-        'See all assessments weakest-first on <a href="#/ai">AI Review</a>.</div></div>' +
+        'See all assessments weakest-first on <a href="#/ai">AI Summary</a>.</div></div>' +
 
-      '<div class="card"><header><h2>' + esc((STATUS[showing] || {}).label || showing) + "</h2>" +
+      '<div class="card"><header><h2>' + esc(title) + "</h2>" +
         '<div class="spacer"></div>' +
         '<button class="btn-sm" id="compareBtn" disabled>Compare selected</button>' +
         '<button class="btn-sm" id="refreshBtn">Refresh</button></header>' +
@@ -981,7 +981,7 @@
       "";
   };
 
-  /* ---------- AI Review (coordinator only) -----------------------------
+  /* ---------- AI Summary (coordinator only) -----------------------------
      The AI assessment exists on every nomination, but buried one click deep
      in a detail pane it may as well not be there. This screen is the AI as a
      first-class view: what it scored, why, what it flagged, and — just as
@@ -1007,7 +1007,7 @@
     var byScore = scored.slice().sort(function (a, b) { return a.aiScore - b.aiScore; });
 
     return '<div class="page-head"><div class="head-row"><div>' +
-        "<h1>AI Review</h1><p>Language assessment across every nomination, weakest first.</p></div>" +
+        "<h1>AI Summary</h1><p>Language assessment across every nomination, weakest first.</p></div>" +
         '<div class="spacer"></div>' + roleChip("COORDINATOR") +
         tagLive() + "</div></div>" +
 
@@ -1110,7 +1110,7 @@
         ? '<p class="ai-rationale" style="margin:0 0 9px">' + esc(n.aiRationale) + "</p>"
         : '<p class="muted" style="font-size:12.5px;margin:0 0 9px">No rationale returned.</p>') +
       flags +
-      '<div style="margin-top:10px"><a class="linkish" href="#/queue">Open in review queue →</a></div>' +
+      '<div style="margin-top:10px"><a class="linkish" href="#/queue?id=' + esc(n.id) + '">Open in review queue →</a></div>' +
     "</div>";
   }
 
@@ -1435,7 +1435,7 @@
             '<a class="linkish" href="#/queue">View queue</a>', true) +
         kpi("k-total", "Flagged by AI", store.nominations.filter(function (n) {
               return (n.aiFlags || []).length > 0;
-            }).length, '<a class="linkish" href="#/ai">AI review</a>', true) +
+            }).length, '<a class="linkish" href="#/ai">AI Summary</a>', true) +
         kpi("k-praise", "Praises this month", 524, "", false) +
         kpi("k-mtm", "MtM pending requests", 22, "", false) +
       "</div>" +
@@ -1478,7 +1478,7 @@
         '<div class="card"><header><h2>Quick actions</h2></header><div class="body">' +
           '<div style="display:flex;flex-direction:column;gap:8px">' +
           '<a class="btn" href="#/queue">Review Star Awards</a>' +
-          '<a class="btn" href="#/ai">Open AI Review</a>' +
+          '<a class="btn" href="#/ai">Open AI Summary</a>' +
           '<a class="btn" href="#/praises">View Praises Wall</a>' +
           '<a class="btn" href="#/mtm">Review MtM requests</a></div></div></div>' +
       "</div>";
@@ -2412,8 +2412,23 @@
     }).join("");
   }
 
+  function routeQuery() {
+    var raw = location.hash || "#/home";
+    var query = raw.split("?")[1] || "";
+    var params = {};
+    query.split("&").forEach(function (part) {
+      if (!part) return;
+      var idx = part.indexOf("=");
+      var key = idx === -1 ? decodeURIComponent(part) : decodeURIComponent(part.slice(0, idx));
+      var value = idx === -1 ? "" : decodeURIComponent(part.slice(idx + 1));
+      params[key] = value;
+    });
+    return params;
+  }
+
   function route() {
-    return (location.hash || "#/home").replace(/^#\/?/, "") || "home";
+    var raw = location.hash || "#/home";
+    return raw.split("?")[0].replace(/^#\/?/, "") || "home";
   }
 
   var lastRoute = null;
@@ -2485,8 +2500,10 @@
     // Filtering has to narrow that, not reach past it back to the whole table.
     var base = store.nominations;
     if (route() === "queue") {
-      var showing = queueFilter || "PENDING_REVIEW";
-      base = base.filter(function (n) { return n.status === showing; });
+      var showing = queueFilter || "ALL";
+      if (showing !== "ALL") {
+        base = base.filter(function (n) { return n.status === showing; });
+      }
     }
 
     var list = base;
@@ -2530,19 +2547,20 @@
   /* Table wiring: row clicks, the status tabs, the category/practice/location
      filters, and the clickable KPI tiles on the review queue. */
   function wireList() {
-    currentFilter = null;
-    currentCategory = "";
+    currentFilter = currentFilter || null;
+    currentCategory = currentCategory || "";
 
     $$("[data-status-filter]").forEach(function (tile) {
       tile.addEventListener("click", function () {
-        queueFilter = tile.getAttribute("data-status-filter");
+        var nextFilter = tile.getAttribute("data-status-filter");
+        queueFilter = (queueFilter === nextFilter) ? null : nextFilter;
         render();
       });
     });
 
-    currentPractice = "";
-    currentLocation = "";
-    currentName = "";
+    currentPractice = currentPractice || "";
+    currentLocation = currentLocation || "";
+    currentName = currentName || "";
 
     var nameBox = $("#nameSearch");
     if (nameBox) {
@@ -2584,6 +2602,35 @@
     bindRows();
     wireCompare();
     updateCompareButton();
+
+    // Put the surviving filters back on screen and re-apply them.
+    //
+    // Switching status tile re-renders, which rebuilds filterBar() with every
+    // select blank. The values were kept in memory but neither shown nor
+    // applied, so the state said "Digital" while the dropdown said "All
+    // practices" and the table showed everything - worse than resetting,
+    // because the two disagreed silently.
+    [["#catFilter", currentCategory],
+     ["#practiceFilter", currentPractice],
+     ["#locationFilter", currentLocation]].forEach(function (pair) {
+      var el = $(pair[0]);
+      if (el) { el.value = pair[1]; }
+    });
+
+    if (currentCategory || currentPractice || currentLocation || currentName) {
+      applyFilters();
+    }
+
+    if (route() === "queue") {
+      var focusId = routeQuery().id;
+      if (focusId) {
+        window.setTimeout(function () {
+          if (route() === "queue" && routeQuery().id === focusId) {
+            showDetail(focusId);
+          }
+        }, 0);
+      }
+    }
   }
 
   function bindFilter(selector, set) {

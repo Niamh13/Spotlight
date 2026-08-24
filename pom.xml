@@ -19,9 +19,19 @@
 
     <properties>
         <java.version>17</java.version>
+        <!-- Spring Boot 3.3.0 pins Byte Buddy 1.14.16, which cannot instrument
+             classes on JDK 26 - every Mockito test errors with "Mockito cannot
+             mock this class" before a single assertion runs. Overriding the
+             version lets the suite run on modern JDKs; it changes nothing about
+             the code under test. -->
+        <byte-buddy.version>1.17.5</byte-buddy.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
