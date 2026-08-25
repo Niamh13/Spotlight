@@ -236,7 +236,9 @@ test.describe('UI / GUI', () => {
     await page.locator('#category').selectOption('INNOVATION_AND_GROWTH');
     const firstChoiceHint = await categoryHint.textContent();
     expect(firstChoiceHint).not.toBe(defaultHint);
-    expect(firstChoiceHint).toContain('Evidence this category expects');
+    // AwardCategory.INNOVATION_AND_GROWTH's real examples text (server-owned,
+    // see AwardCategory.java) - not a paraphrase.
+    expect(firstChoiceHint).toContain('New ideas implemented');
 
     await page.locator('#category').selectOption('QUALITY_AND_COMPLIANCE');
     const secondChoiceHint = await categoryHint.textContent();

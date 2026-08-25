@@ -342,6 +342,9 @@ export default function DetailPane({ id, onClose, onDecided }) {
   const { isCoordinator } = useStore();
   const [n, setN] = useState(null);
   const [error, setError] = useState(null);
+  // Bumped on every decision so AuditHistory (keyed on it below) remounts and
+  // re-fetches - see handleDecided for why a plain re-render isn't enough.
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     let live = true;
@@ -351,6 +354,20 @@ export default function DetailPane({ id, onClose, onDecided }) {
       .catch((e) => { if (live) setError(e.body?.error || "Not found"); });
     return () => { live = false; };
   }, [id]);
+
+  // The parent's onDecided() refreshes the table/badges/activity log, but it
+  // doesn't change `id` - and this pane's own useEffect above, plus
+  // AuditHistory's own effect below, only re-fetch when `id` changes. Without
+  // refreshing here too, the action bar keeps showing the pre-decision
+  // buttons and the audit history stays empty after a successful approve/
+  // reject/resubmission-request, until the pane is closed and reopened.
+  const handleDecided = (decidedId) => {
+    api.nomination(decidedId)
+      .then(setN)
+      .catch((e) => setError(e.body?.error || "Not found"));
+    setRevision((r) => r + 1);
+    onDecided(decidedId);
+  };
 
   if (error) return <div id="detail" className="show"><p style={{ color: "var(--critical)" }}>{error}</p></div>;
   if (!n) return <div id="detail" className="show"><p className="muted">Loading…</p></div>;
@@ -367,7 +384,7 @@ export default function DetailPane({ id, onClose, onDecided }) {
       </div>
 
       {isCoordinator ? <AiPanel n={n} /> : null}
-      {isCoordinator ? <ActionBar n={n} onDecided={onDecided} /> : null}
+      {isCoordinator ? <ActionBar n={n} onDecided={handleDecided} /> : null}
 
       <div className="prose"><div className="k">What</div><div className="v">{n.whatText}</div></div>
       <div className="prose">
@@ -405,7 +422,7 @@ export default function DetailPane({ id, onClose, onDecided }) {
       {isCoordinator ? (
         <div style={{ marginTop: "16px" }}>
           <div className="k" style={{ marginBottom: "8px" }}>Activity history</div>
-          <AuditHistory id={n.id} />
+          <AuditHistory key={revision} id={n.id} />
         </div>
       ) : null}
     </div>
