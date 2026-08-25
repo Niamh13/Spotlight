@@ -1,12 +1,10 @@
 package com.version1.recognition.nomination.web;
 
-import com.version1.recognition.nomination.AwardCategory;
-import com.version1.recognition.nomination.CoreValue;
-
+import com.version1.recognition.nomination.model.AwardCategory;
+import com.version1.recognition.nomination.model.CoreValue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-
 import java.util.UUID;
 
 public class NominationRequest {
@@ -36,7 +34,10 @@ public class NominationRequest {
     @NotNull(message = "Category is required - pick the business category this nomination fits")
     private AwardCategory category;
 
-    @NotNull(message = "Select the core value this nomination demonstrates")
+    // Optional. The form asks for the value in the HOW text rather than from a
+    // dropdown, so this normally arrives null and the service works it out from
+    // what was written. Kept on the DTO so an API client can still state it
+    // outright if it knows.
     private CoreValue coreValue;
 
     @NotBlank(message = "WHAT is required - describe the achievement, contribution, or action")

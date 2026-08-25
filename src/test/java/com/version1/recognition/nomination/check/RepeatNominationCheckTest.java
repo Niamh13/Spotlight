@@ -1,10 +1,10 @@
 package com.version1.recognition.nomination.check;
 
-import com.version1.recognition.nomination.AiFlag;
-import com.version1.recognition.nomination.AwardCategory;
-import com.version1.recognition.nomination.CoreValue;
-import com.version1.recognition.nomination.Nomination;
-import com.version1.recognition.nomination.Quarter;
+import com.version1.recognition.nomination.model.AiFlag;
+import com.version1.recognition.nomination.model.AwardCategory;
+import com.version1.recognition.nomination.model.CoreValue;
+import com.version1.recognition.nomination.model.Nomination;
+import com.version1.recognition.nomination.model.Quarter;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

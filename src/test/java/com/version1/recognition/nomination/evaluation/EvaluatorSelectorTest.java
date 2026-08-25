@@ -1,6 +1,6 @@
 package com.version1.recognition.nomination.evaluation;
 
-import com.version1.recognition.nomination.Nomination;
+import com.version1.recognition.nomination.model.Nomination;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

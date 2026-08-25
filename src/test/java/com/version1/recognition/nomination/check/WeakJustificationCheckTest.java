@@ -1,9 +1,9 @@
 package com.version1.recognition.nomination.check;
 
-import com.version1.recognition.nomination.AiFlag;
-import com.version1.recognition.nomination.AwardCategory;
-import com.version1.recognition.nomination.CoreValue;
-import com.version1.recognition.nomination.Nomination;
+import com.version1.recognition.nomination.model.AiFlag;
+import com.version1.recognition.nomination.model.AwardCategory;
+import com.version1.recognition.nomination.model.CoreValue;
+import com.version1.recognition.nomination.model.Nomination;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -111,15 +111,17 @@ class WeakJustificationCheckTest {
         }
 
         @Test
-        @DisplayName("core value selected but never evidenced in text -> counts as a failing signal")
-        void coreValueSelectedButNotEvidenced_countsAsFailure() {
-            // No CUSTOMER_FIRST/client keywords anywhere, and short - two signals.
+        @DisplayName("no core value named or evidenced anywhere in the text -> counts as a failing signal")
+        void noValueNamedOrEvidenced_countsAsFailure() {
+            // The coreValue field is no longer read here - the check looks at the
+            // text itself. No CUSTOMER_FIRST/client keywords anywhere, and short -
+            // two signals.
             Nomination n = nomination("Did a task.", "Finished it.", CoreValue.CUSTOMER_FIRST);
 
             Optional<String> result = check.evaluate(n, Collections.emptyList());
 
             assertThat(result).isPresent();
-            assertThat(result.get()).contains("never visibly connects to Customer First");
+            assertThat(result.get()).contains("names none of the six core values");
         }
     }
 

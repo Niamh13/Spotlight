@@ -1,21 +1,19 @@
 package com.version1.recognition.nomination.web;
 
-import com.version1.recognition.nomination.CompletenessCriterion;
-import com.version1.recognition.nomination.CompletenessService;
-import com.version1.recognition.nomination.Nomination;
-import com.version1.recognition.nomination.NominationService;
-import com.version1.recognition.nomination.NominationStatus;
-
+import com.version1.recognition.nomination.model.Nomination;
+import com.version1.recognition.nomination.model.NominationStatus;
+import com.version1.recognition.nomination.service.CompletenessCriterion;
+import com.version1.recognition.nomination.service.CompletenessService;
+import com.version1.recognition.nomination.service.NominationService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/nominations")

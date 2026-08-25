@@ -1,14 +1,13 @@
 package com.version1.recognition.nomination.web;
 
-import com.version1.recognition.nomination.AuditAction;
-import com.version1.recognition.nomination.AuditLogEntry;
-
+import com.version1.recognition.nomination.model.AuditAction;
+import com.version1.recognition.nomination.model.AuditLogEntry;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public class AuditLogEntryResponse {
 

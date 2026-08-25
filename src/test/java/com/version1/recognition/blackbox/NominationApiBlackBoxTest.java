@@ -1,8 +1,8 @@
 package com.version1.recognition.blackbox;
 
-import com.version1.recognition.nomination.Role;
-import com.version1.recognition.nomination.User;
-import com.version1.recognition.nomination.UserRepository;
+import com.version1.recognition.nomination.model.Role;
+import com.version1.recognition.nomination.model.User;
+import com.version1.recognition.nomination.repository.UserRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

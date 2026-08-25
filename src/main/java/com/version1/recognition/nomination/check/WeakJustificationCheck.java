@@ -1,17 +1,15 @@
 package com.version1.recognition.nomination.check;
 
-import com.version1.recognition.nomination.AiFlag;
-import com.version1.recognition.nomination.CoreValue;
-import com.version1.recognition.nomination.Nomination;
-
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-
+import com.version1.recognition.nomination.model.AiFlag;
+import com.version1.recognition.nomination.model.CoreValue;
+import com.version1.recognition.nomination.model.Nomination;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 /**
  * Scores the write-up on three cheap signals and flags it when two or more fire:
@@ -62,20 +60,13 @@ public class WeakJustificationCheck implements NominationCheck {
                     + "of the impact");
         }
 
-        // Now that the value is picked from a list, "did they name a value" is
-        // answered by the form. The useful question is whether the HOW actually
-        // argues for the value chosen, or just sits next to it. This is a blunt
-        // proxy - a good HOW can evidence No Ego without using the word - so the
-        // matched-or-not reasoning is spelled out in the message and a
-        // coordinator can dismiss it at a glance.
-        CoreValue chosen = nomination.getCoreValue();
-        if (chosen == null) {
-            failures.add("no core value was selected");
-        } else {
-            if (!chosen.isEvidencedIn(combined)) {
-                failures.add("the HOW never visibly connects to " + chosen.getLabel()
-                        + ", the value the nominator selected");
-            }
+        // The form asks for the value in prose, so this asks whether the
+        // write-up names one at all. A blunt proxy - someone can describe No Ego
+        // perfectly without using the phrase - so the reason says exactly what
+        // was looked for and a coordinator can wave it through.
+        if (CoreValue.detectIn(combined).isEmpty()) {
+            failures.add("it names none of the six core values, and nothing in the wording "
+                    + "clearly points at one");
         }
 
         if (failures.size() < 2) {

@@ -1,8 +1,9 @@
 package com.version1.recognition.nomination.web;
 
-import com.version1.recognition.nomination.AiFlag;
-import com.version1.recognition.nomination.FlagSource;
-import com.version1.recognition.nomination.NominationFlag;
+import com.version1.recognition.nomination.model.AiFlag;
+import com.version1.recognition.nomination.model.FlagSource;
+import com.version1.recognition.nomination.model.NominationFlag;
+
 
 /**
  * One flag as the dashboard sees it. Kept separate from the persisted

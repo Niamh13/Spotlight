@@ -1,16 +1,9 @@
 package com.version1.recognition.nomination.evaluation;
 
-import com.version1.recognition.nomination.AiFlag;
-import com.version1.recognition.nomination.Nomination;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.stereotype.Component;
-
+import com.version1.recognition.nomination.model.AiFlag;
+import com.version1.recognition.nomination.model.Nomination;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -22,6 +15,11 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.stereotype.Component;
 
 /**
  * Calls Groq's free-tier API (OpenAI-compatible chat completions endpoint)

@@ -1,21 +1,19 @@
 package com.version1.recognition.nomination.web;
 
-import com.version1.recognition.nomination.AuditLogEntry;
-import com.version1.recognition.nomination.AuditLogRepository;
-import com.version1.recognition.nomination.Nomination;
-import com.version1.recognition.nomination.NominationRepository;
-
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
+import com.version1.recognition.nomination.model.AuditLogEntry;
+import com.version1.recognition.nomination.model.Nomination;
+import com.version1.recognition.nomination.repository.AuditLogRepository;
+import com.version1.recognition.nomination.repository.NominationRepository;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Every recorded action, across every nomination, newest first.

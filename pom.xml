@@ -30,40 +30,82 @@
              same way. -->
         <mysql.username>root</mysql.username>
         <mysql.password>root</mysql.password>
+        <!-- Spring Boot 3.3.0 pins Byte Buddy 1.14.16, which cannot instrument
+             classes on JDK 26 - every Mockito test errors with "Mockito cannot
+             mock this class" before a single assertion runs. Overriding the
+             version lets the suite run on modern JDKs; it changes nothing about
+             the code under test. -->
+        <byte-buddy.version>1.17.5</byte-buddy.version>
     </properties>
 
+    <!-- Every dependency below carries a note saying what it gives us and why it
+         is here. Anything without a reason should be deleted, not inherited. -->
     <dependencies>
+
+        <!-- Health endpoint at /actuator/health. Cheap way to answer "is it
+             actually up?" without loading a page. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- The web server plus Spring MVC. This is what turns the annotated
+             classes in nomination/web into a REST API, and what serves the
+             built front end out of resources/static. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
+        <!-- JPA and Hibernate. Maps the Nomination entity to database rows and
+             turns the repository interfaces into working queries, so there is
+             no hand-written SQL anywhere outside the Liquibase migrations. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
+
+        <!-- Bean Validation: the @NotBlank / @Email annotations on
+             NominationRequest. Bad input is rejected before any of our code
+             runs, which keeps the field checks in one place rather than
+             scattered through the service. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+
+        <!-- The database driver. MySQL needs a real server (see .env/docker-compose
+             for local setup); runtime scope because no code imports it, only the
+             JDBC URL names it. -->
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
+
+        <!-- Version control for the database schema. The 11 files in
+             db/changelog are applied in order and recorded, so every machine
+             ends up with the same tables and the seed data arrives with them.
+             Without this the schema would only exist in whoever's H2 file. -->
         <dependency>
             <groupId>org.liquibase</groupId>
             <artifactId>liquibase-core</artifactId>
         </dependency>
+
         <!-- Reads a gitignored .env file at startup so secrets can sit beside the
              project instead of in a machine-level environment variable. Spring
              Boot has no native .env support - it isn't a Node app - so this is
-             the small, well-established way to get it. -->
+             the small, well-established way to get it. This is the only
+             third-party (non-Spring, non-Apache) dependency in the project. -->
         <dependency>
             <groupId>me.paulschwarz</groupId>
             <artifactId>spring-dotenv</artifactId>
             <version>4.0.0</version>
         </dependency>
 
+        <!-- JUnit 5, Mockito and AssertJ in one starter - what
+             NominationServiceTest is written against. Test scope, so none of it
+             ships in the built jar. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

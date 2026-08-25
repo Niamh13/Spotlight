@@ -1,7 +1,6 @@
 package com.version1.recognition.nomination.evaluation;
 
-import com.version1.recognition.nomination.AiFlag;
-
+import com.version1.recognition.nomination.model.AiFlag;
 import java.util.List;
 
 public class AiEvaluationResult {

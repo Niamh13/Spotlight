@@ -1,8 +1,8 @@
 package com.version1.recognition.uat;
 
-import com.version1.recognition.nomination.Role;
-import com.version1.recognition.nomination.User;
-import com.version1.recognition.nomination.UserRepository;
+import com.version1.recognition.nomination.model.Role;
+import com.version1.recognition.nomination.model.User;
+import com.version1.recognition.nomination.repository.UserRepository;
 
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;

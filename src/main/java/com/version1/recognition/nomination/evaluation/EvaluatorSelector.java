@@ -1,7 +1,6 @@
 package com.version1.recognition.nomination.evaluation;
 
-import com.version1.recognition.nomination.Nomination;
-
+import com.version1.recognition.nomination.model.Nomination;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;

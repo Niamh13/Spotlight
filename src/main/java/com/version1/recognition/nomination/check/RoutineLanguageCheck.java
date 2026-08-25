@@ -1,15 +1,13 @@
 package com.version1.recognition.nomination.check;
 
-import com.version1.recognition.nomination.AiFlag;
-import com.version1.recognition.nomination.Nomination;
-
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-
+import com.version1.recognition.nomination.model.AiFlag;
+import com.version1.recognition.nomination.model.Nomination;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 /**
  * Does the write-up lean on generic praise and job-description language instead

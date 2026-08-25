@@ -1,7 +1,6 @@
 package com.version1.recognition.nomination.comms;
 
-import com.version1.recognition.nomination.Nomination;
-
+import com.version1.recognition.nomination.model.Nomination;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -30,8 +29,16 @@ public class NotificationService {
 
         StringBuilder body = new StringBuilder();
         body.append("Hi ").append(nomination.getNominatorName()).append(",\n\n");
-        body.append("Good news - the Star Award nomination you submitted for ");
-        body.append(nomination.getNomineeName()).append(" has been approved.\n\n");
+        body.append("Thank you for your Star Award nomination for ");
+        body.append(nomination.getNomineeName()).append(".\n\n");
+        body.append("We’re happy to confirm it has been successfully submitted.\r\n" + //
+                "\r\n" + //
+                "We really appreciate you taking the time to recognise great work and celebrate the contributions of your colleagues.\r\n"
+                + //
+                "\r\n" + //
+                "If you’d like to recognise another colleague or team this quarter, we encourage you to use Praise for everyday recognition and quick shout-outs.\r\n"
+                + //
+                "\n");
         body.append("What you told us:\n");
         body.append("  WHAT: ").append(nomination.getWhatText()).append("\n");
         body.append("  HOW:  ").append(nomination.getHowText()).append("\n\n");
@@ -44,7 +51,9 @@ public class NotificationService {
             body.append(coordinatorComment).append("\n\n");
         }
 
-        body.append("Thanks for taking the time to recognise a colleague.\n\n");
+        body.append("Best regards,\r\n" + //
+                "The Star Awards Team\r\n" + //
+                "\n\n");
         body.append("Reference: ").append(nomination.getId()).append("\n");
 
         return record(nomination.getNominatorEmail(), subject, body.toString());
@@ -59,13 +68,11 @@ public class NotificationService {
      * receive, and the words a colleague chose about you are most of the value.
      */
     public SentEmail sendNomineeAwardComms(Nomination nomination) {
-        String subject = "You have received a Star Award";
+        String subject = "Congratulations on your Star Award Nomination!";
 
         StringBuilder body = new StringBuilder();
         body.append("Hi ").append(nomination.getNomineeName()).append(",\n\n");
-        body.append("You have been recognised with a Star Award, nominated by ");
-        body.append(nomination.getNominatorName()).append(".\n\n");
-        body.append("Here is what they said:\n\n");
+        body.append(nomination.getNominatorName()).append("recognized you:\n\n");
         body.append("  WHAT THEY RECOGNISED\n  ").append(nomination.getWhatText()).append("\n\n");
         body.append("  HOW IT DEMONSTRATED OUR VALUES\n  ").append(nomination.getHowText()).append("\n\n");
 
@@ -73,7 +80,9 @@ public class NotificationService {
             body.append("Category: ").append(nomination.getCategory().getLabel()).append("\n\n");
         }
 
-        body.append("Congratulations - this was genuinely earned.\n\n");
+        body.append("Best regards,\r\n" + //
+                "The Star Awards Team\r\n" + //
+                "\n\n");
         body.append("Reference: ").append(nomination.getId()).append("\n");
 
         return record(nomination.getNomineeEmail(), subject, body.toString());
@@ -89,16 +98,22 @@ public class NotificationService {
 
         StringBuilder body = new StringBuilder();
         body.append("Hi ").append(nomination.getNominatorName()).append(",\n\n");
-        body.append("Thank you for nominating ").append(nomination.getNomineeName());
-        body.append(" for a Star Award. On this occasion it has not been taken forward.\n\n");
-        body.append("Why:\n").append(nomination.getRejectionReason()).append("\n\n");
+        body.append(
+                "Thank you for taking the time to submit a Star Award nomination. We really appreciate your effort in recognising great work.");
+        body.append("Unfortunately, this nomination was not successful on this occasion.\n\n");
+        body.append("Reason for this decision:\n").append(nomination.getRejectionReason()).append("\n\n");
 
         if (coordinatorComment != null && !coordinatorComment.isBlank()) {
             body.append("Additional note:\n").append(coordinatorComment).append("\n\n");
         }
 
-        body.append("This reflects the nomination rather than your colleague's work, and it ");
-        body.append("does not stop them being nominated again in a future quarter.\n\n");
+        body.append(
+                "If you’d still like to recognise this colleague or another team member, we encourage you to use Praise, which is designed for everyday recognition and quick shout-outs.");
+        body.append("Thank you again for helping us celebrate great contributions across the business.\n\n");
+        body.append("Best regards,\r\n" + //
+                "The Star Awards Team\r\n" + //
+                "\n\n");
+
         body.append("Reference: ").append(nomination.getId()).append("\n");
 
         return record(nomination.getNominatorEmail(), subject, body.toString());
@@ -106,24 +121,33 @@ public class NotificationService {
 
     /** Asks the nominator for more detail, quoting what they originally wrote. */
     public SentEmail sendResubmissionRequestedComms(Nomination nomination, String coordinatorComment) {
-        String subject = "More detail needed on your Star Award nomination for "
+        String subject = "Your Star Award Nomination Is Pending"
                 + nomination.getNomineeName();
 
         StringBuilder body = new StringBuilder();
         body.append("Hi ").append(nomination.getNominatorName()).append(",\n\n");
-        body.append("Thanks for nominating ").append(nomination.getNomineeName());
-        body.append(" for a Star Award. Before it can go to review we need a little more detail.\n\n");
-        body.append("What to add:\n").append(nomination.getRejectionReason()).append("\n\n");
+        body.append(
+                "Thank you for submitting a Star Award nomination and for taking the time to recognise a colleague’s contribution.\n\n");
+        body.append(
+                "Your nomination is currently pending, as we need a bit more information before it can be fully assessed.\n\n");
+
+        body.append("Please provide:\n").append(nomination.getRejectionReason()).append("\n\n");
 
         if (coordinatorComment != null && !coordinatorComment.isBlank()) {
             body.append("Additional note:\n").append(coordinatorComment).append("\n\n");
         }
 
+        body.append("Once updated, we’ll be happy to review the nomination again.\n\n");
+        body.append(
+                "In the meantime, if you’d like to recognise everyday contributions from colleagues or teams, we encourage you to use Praise for quick and visible recognition.\n\n");
+
         body.append("Your original wording is below, so you can build on it rather than start again.\n\n");
         body.append("  WHAT: ").append(nomination.getWhatText()).append("\n");
         body.append("  HOW:  ").append(nomination.getHowText()).append("\n\n");
-        body.append("Resubmitting does not use up another nomination - it continues the entry ");
-        body.append("you already made this quarter.\n\n");
+        body.append("Thanks again for your engagement and support.");
+        body.append("Best regards,\r\n" + //
+                "The Star Awards Team\r\n" + //
+                "\n\n");
         body.append("Reference: ").append(nomination.getId()).append("\n");
 
         return record(nomination.getNominatorEmail(), subject, body.toString());

@@ -1,14 +1,12 @@
 package com.version1.recognition.nomination.check;
 
-import com.version1.recognition.nomination.AiFlag;
-import com.version1.recognition.nomination.Nomination;
-import com.version1.recognition.nomination.UserRepository;
-
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-
+import com.version1.recognition.nomination.model.AiFlag;
+import com.version1.recognition.nomination.model.Nomination;
+import com.version1.recognition.nomination.repository.UserRepository;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 /**
  * Is the nominee a known user in the platform's own directory?

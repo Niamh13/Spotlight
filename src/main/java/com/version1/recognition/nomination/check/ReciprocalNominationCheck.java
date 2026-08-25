@@ -1,15 +1,13 @@
 package com.version1.recognition.nomination.check;
 
-import com.version1.recognition.nomination.AiFlag;
-import com.version1.recognition.nomination.Nomination;
-
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-
+import com.version1.recognition.nomination.model.AiFlag;
+import com.version1.recognition.nomination.model.Nomination;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 /**
  * Did the nominee also nominate the nominator, somewhere else on record?
