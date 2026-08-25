@@ -2,7 +2,9 @@
 target/
 *.class
 
-# Local database file (Liquibase-managed, regenerates from migrations)
+# Leftover H2 database files from before the move to MySQL. Nothing writes
+# here any more; the entry stays so an old working copy does not suddenly
+# start offering 7MB of binary database to a commit.
 data/
 
 # IDE

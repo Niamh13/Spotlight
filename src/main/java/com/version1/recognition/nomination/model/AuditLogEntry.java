@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "nomination_audit_log")
@@ -12,9 +14,11 @@ public class AuditLogEntry {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID id;
 
     @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID nominationId;
 
     @Column(nullable = false)
@@ -26,14 +30,14 @@ public class AuditLogEntry {
 
     // The message the nominator is told. Mandatory for REJECTED and
     // RESUBMISSION_REQUESTED, null for APPROVED.
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     private String reason;
 
     // The coordinator's own note. Deliberately separate from `reason`: one is
     // sent to the nominator, the other is internal context for whoever picks
     // this up next. Conflating them means either the nominator reads a note
     // meant for colleagues, or the note is never written at all.
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     private String comment;
 
     // Every message this decision generated. Approving produces two - one to the

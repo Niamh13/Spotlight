@@ -63,13 +63,13 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
-        <!-- The database itself. H2 in file mode means one file in data/ and
-             nothing to install - a fresh clone runs with no database setup at
-             all. Runtime scope because no code imports it; only the JDBC URL
-             names it. -->
+        <!-- The database driver. MySQL is the real store: a shared server the
+             whole team points at, rather than a file that only exists on one
+             laptop. Runtime scope because no code imports it - only the JDBC
+             URL in application.properties names it. -->
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -118,10 +118,10 @@
                 <version>4.27.0</version>
                 <configuration>
                     <changeLogFile>src/main/resources/db/changelog/db.changelog-master.xml</changeLogFile>
-                    <url>jdbc:h2:file:./data/recognitiondb;AUTO_SERVER=TRUE</url>
-                    <driver>org.h2.Driver</driver>
-                    <username>sa</username>
-                    <password></password>
+                    <url>${env.MYSQL_URL}</url>
+                    <driver>com.mysql.cj.jdbc.Driver</driver>
+                    <username>${env.MYSQL_USERNAME}</username>
+                    <password>${env.MYSQL_PASSWORD}</password>
                 </configuration>
             </plugin>
         </plugins>

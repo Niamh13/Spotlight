@@ -6,6 +6,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "nominations")
@@ -13,6 +15,7 @@ public class Nomination {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID id;
 
     @Column(nullable = false)
@@ -48,12 +51,12 @@ public class Nomination {
     private CoreValue coreValue;
 
     // WHAT: the achievement, contribution, or action
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     @Column(nullable = false)
     private String whatText;
 
     // HOW: how it demonstrated a Version 1 core value
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     @Column(nullable = false)
     private String howText;
 
@@ -69,7 +72,7 @@ public class Nomination {
     private List<NominationFlag> aiFlags = new ArrayList<>();
 
     // Set when a coordinator rejects (Epic 3) - mandatory at that point, null until then.
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     private String rejectionReason;
 
     // AI evaluation results (Epic 2). Score/rationale come from the Groq call;
@@ -77,7 +80,7 @@ public class Nomination {
     // produced this result, for traceability if the prompt changes later.
     private Integer aiScore;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     private String aiRationale;
 
     private String aiPromptVersion;
@@ -86,6 +89,7 @@ public class Nomination {
     private AiEvaluationStatus aiEvaluationStatus;
 
     // Links a resubmission back to the nomination it replaces (Epic 3).
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID originalNominationId;
 
     // Who made the approve/reject call (Epic 3).

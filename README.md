@@ -13,24 +13,50 @@ conclusions from it.
 
 ## Running it
 
-Needs a JDK (17+) and Maven. Nothing else — no Node, no database to install,
-no API key required.
+Needs a JDK (17+), Maven, and a **MySQL 8 server**. No Node, no API key.
+
+**1. Point the app at your MySQL.** Copy the template and fill in your
+credentials:
+
+```bash
+cp .env.example .env        # copy .env.example .env  on Windows
+```
+
+```
+MYSQL_USERNAME=root
+MYSQL_PASSWORD=your_password
+```
+
+You do **not** need to create the database by hand — the connection string
+carries `createDatabaseIfNotExist`, and Liquibase builds the tables inside it
+on first run, seed data included.
+
+**2. Run it.**
 
 ```bash
 mvn spring-boot:run
 ```
 
-That is genuinely the whole setup. **You do not need an API key to run or test
-this** — see [AI evaluation](#using-the-real-groq-evaluator) for what happens
-without one.
-
 Then open **http://localhost:8080**.
 
-The H2 console is at `http://localhost:8080/h2-console` — JDBC URL
-`jdbc:h2:file:./data/recognitiondb;AUTO_SERVER=TRUE`, user `sa`, no password.
+**You do not need an API key to run or test this** — see
+[AI evaluation](#using-the-real-groq-evaluator) for what happens without one.
 
-The database file lives in `data/` and is gitignored. Delete it and restart to
-rebuild from migrations, seed data included.
+Browse the data with **MySQL Workbench**: connect to `localhost:3306`, schema
+`recognitiondb`.
+
+### Resetting the database
+
+```sql
+DROP DATABASE recognitiondb;
+```
+
+Restart the app and Liquibase rebuilds it from the migrations, seed data
+included.
+
+> **Moving from the H2 version?** Older checkouts kept the database in a
+> `data/` folder. Nothing writes there any more — the folder is safe to
+> delete.
 
 ### Demo data
 
@@ -250,7 +276,7 @@ mvn liquibase:rollback -Dliquibase.rollbackCount=1   # undo the most recent chan
 what you are actually undoing rather than assuming a number — the list above
 changes as migrations are added.
 
-To rebuild from scratch, delete `data/` and restart the app.
+To rebuild from scratch, `DROP DATABASE recognitiondb;` and restart the app.
 
 Seed data is tagged `context="demo"` and switched on by
 `spring.liquibase.contexts=demo` in `application.properties`. Remove that line

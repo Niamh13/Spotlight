@@ -4,8 +4,9 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.Lob;
 import java.util.Objects;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * One flag raised against a nomination, with the reason it was raised.
@@ -27,7 +28,7 @@ public class NominationFlag {
     @Column(name = "source", nullable = false, length = 20)
     private FlagSource source;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     @Column(name = "reason")
     private String reason;
 

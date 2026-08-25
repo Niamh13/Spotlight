@@ -32,9 +32,9 @@ An employee submits a Star Award nomination; the server validates it, runs six
 deterministic rules over it, asks a language model how *reviewable* it is, and
 stores the result. An HR coordinator reads the queue, approves, rejects or
 sends it back, and every decision is written to an audit log along with the
-full text of the emails it generated. Data lives in an **H2** file database
-with the schema managed by **Liquibase**. The whole thing runs with one
-command and no setup.
+full text of the emails it generated. Data lives in **MySQL** with the schema
+managed by **Liquibase**, so every machine ends up with identical tables from
+the same migrations.
 
 ---
 
@@ -48,7 +48,8 @@ command and no setup.
 | **Spring Data JPA** | starter | Database access without writing SQL — you declare an interface, Spring writes the query | `nomination/repository/` |
 | **Hibernate** | via JPA | The engine underneath JPA that maps Java objects to database rows | `nomination/model/Nomination.java` |
 | **Bean Validation** | starter | `@NotBlank`, `@Email` etc. on incoming requests, checked before your code runs | `nomination/web/NominationRequest.java` |
-| **H2** | runtime | The database. A single file on disk, no server to install | `data/recognitiondb.mv.db` |
+| **MySQL** | 8 | The database. A shared server the team points at, rather than a file on one laptop | `application.properties` |
+| **mysql-connector-j** | runtime | The JDBC driver. Runtime scope because no code imports it — only the connection string names it | `pom.xml` |
 | **Liquibase** | core | Version control for the database schema — 11 numbered migrations | `src/main/resources/db/changelog/` |
 | **spring-dotenv** | 4.0.0 | Reads a gitignored `.env` file at startup so the API key never enters the repo | `pom.xml`, `.env.example` |
 | **Spring Actuator** | starter | Health endpoint (`/actuator/health`) | configured by default |
@@ -85,7 +86,7 @@ recognition-platform/
 ├── .env.example                 Template showing what goes in .env
 ├── .gitignore
 │
-├── data/                        H2 database file. Gitignored, regenerates
+├── data/                        Leftover H2 files from before MySQL. Safe to delete
 ├── docs/
 │   ├── technical-guide.md       ← you are here
 │   └── ai-bias-fairness-oversight.md
@@ -346,16 +347,44 @@ it was missed, people saw an old page and concluded the change hadn't worked.
 
 ## 7. The database
 
-### H2
+### MySQL
 
-A file database: `data/recognitiondb.mv.db`. No server to install. The file is
-gitignored — **delete it and restart to rebuild from migrations**, seed data
-included.
+A MySQL 8 server, schema `recognitiondb`. It replaced an H2 file database —
+which worked, but the data only ever existed on whichever laptop ran it, so
+"it works on mine" was unanswerable and there was nothing to point a shared
+environment at.
 
-Browse it live at **http://localhost:8080/h2-console**:
+**You do not create the database.** The connection string carries
+`createDatabaseIfNotExist=true`, so the server makes an empty schema on first
+connection and Liquibase builds the tables inside it, seed data included.
 
-- JDBC URL: `jdbc:h2:file:./data/recognitiondb;AUTO_SERVER=TRUE`
-- User: `sa` · Password: *(blank)*
+Credentials come from `.env` (gitignored), read at startup by `spring-dotenv`:
+
+```
+MYSQL_USERNAME=root
+MYSQL_PASSWORD=your_password
+```
+
+The committed defaults in `application.properties` are deliberately useless, so
+a real password cannot reach the repository by accident. This repository is
+public.
+
+Browse the data with **MySQL Workbench** — connect to `localhost:3306`, schema
+`recognitiondb`.
+
+**To reset:** `DROP DATABASE recognitiondb;` then restart. Liquibase rebuilds
+everything from the migrations.
+
+### Why the migrations did not need changing
+
+All 11 changelogs moved from H2 to MySQL untouched. They are declarative
+Liquibase changeSets — `type="UUID"`, `type="CLOB"`, `type="VARCHAR(255)"` —
+and Liquibase maps each to whatever the target database calls it (`UUID`
+becomes `CHAR(36)` on MySQL). The one raw `<sql>` block, in `010`, is a plain
+`INSERT … SELECT` that both databases understand.
+
+That portability is the whole argument for having used Liquibase rather than
+`ddl-auto=update` from the start.
 
 ### Liquibase
 
@@ -589,8 +618,9 @@ The `reason: "QUARTER_LIMIT"` marker is why the front end can show a specific
 mvn spring-boot:run
 ```
 
-Needs a JDK 17+. **Nothing else** — no Node, no database to install, no API
-key. Then open **http://localhost:8080**.
+Needs a JDK 17+ and a **MySQL 8 server**. Copy `.env.example` to `.env` and
+put your MySQL credentials in it first — the app will not start without a
+reachable server. No Node, no API key. Then open **http://localhost:8080**.
 
 ### Java tests
 
@@ -692,11 +722,13 @@ Everything in `src/main/resources/application.properties`.
 | Setting | Value | Meaning |
 |---|---|---|
 | `server.port` | `8080` | Where the app listens |
-| `spring.datasource.url` | `jdbc:h2:file:./data/recognitiondb;AUTO_SERVER=TRUE` | Database file. `AUTO_SERVER` lets the H2 console connect while the app runs |
+| `spring.datasource.url` | `${MYSQL_URL:jdbc:mysql://localhost:3306/recognitiondb?createDatabaseIfNotExist=true&…}` | `createDatabaseIfNotExist` means nobody has to run `CREATE DATABASE` by hand |
+| `spring.datasource.username` | `${MYSQL_USERNAME:root}` | From `.env`. The committed default is deliberately useless |
+| `spring.datasource.password` | `${MYSQL_PASSWORD:}` | **Never hardcode.** This repository is public |
 | `spring.jpa.hibernate.ddl-auto` | `validate` | Check the schema, never change it |
 | `spring.jpa.show-sql` | `true` | Log every query — useful while learning, noisy in production |
 | `spring.liquibase.contexts` | `demo` | Load the seed data. Remove for an empty database |
-| `spring.h2.console.enabled` | `true` | Browse the database at `/h2-console` |
+
 | `ai.evaluator` | `auto` | `auto` \| `groq` \| `mock` |
 | `groq.api.key` | `${GROQ_API_KEY:...}` | Read from the environment or `.env`. **Never hardcode** |
 | `groq.api.model` | `openai/gpt-oss-20b` | Which model to call |
