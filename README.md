@@ -13,13 +13,8 @@ conclusions from it.
 
 ## Running it
 
-Needs a JDK (17+), Maven, and MySQL on the default port (3306) — no Node, no
-API key required.
-
-The easiest way to get MySQL: `docker compose up -d` starts a dedicated
-container with the `root`/`root` credentials this project expects, so there's
-nothing to configure. (Already running MySQL locally? Skip this and see the
-override note below instead.)
+Needs a JDK (17+), Maven, and a MySQL server running locally on the default
+port (3306) — no Node, no API key required.
 
 ```bash
 mvn spring-boot:run
@@ -27,16 +22,8 @@ mvn spring-boot:run
 
 With no further setup this connects to `jdbc:mysql://localhost:3306/recognitiondb`
 as `root`/`root` (creating the database on first run) and runs Liquibase
-automatically.
-
-If you're using your own MySQL instead of the provided container and it
-doesn't use `root`/`root`, don't change your MySQL user — just set
-`MYSQL_USERNAME` and/or `MYSQL_PASSWORD` (and `MYSQL_URL`, if the host or port
-differs) in your `.env` file, the same one used for `GROQ_API_KEY` below. See
-`application.properties` for the full list of overridable properties.
-`mvn test` and manual `mvn liquibase:update`/`rollback` read separate
-`mysql.username`/`mysql.password` Maven properties for the same purpose —
-override those with `-Dmysql.username=... -Dmysql.password=...` if needed.
+automatically. Override any of it with the `MYSQL_URL`, `MYSQL_USERNAME` or
+`MYSQL_PASSWORD` environment variables — see `application.properties`.
 
 **You do not need an API key to run or test this** — see
 [AI evaluation](#using-the-real-groq-evaluator) for what happens without one.
