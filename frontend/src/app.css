@@ -656,8 +656,11 @@ td.when { color: var(--ink-2); font-size: 12.5px; font-variant-numeric: tabular-
 .timeline .tl-dot.rejected { background: color-mix(in srgb, var(--critical) 15%, var(--surface)); color: var(--critical); }
 .timeline .tl-dot.progress { background: color-mix(in srgb, var(--info) 15%, var(--surface)); color: var(--info); }
 .timeline .tl-body { flex: 1 1 auto; min-width: 0; }
-.timeline .tl-what { font-size: 13px; }
-.timeline .tl-why { font-size: 12.5px; color: var(--ink-2); margin-top: 3px; }
+/* These are spans, so they need display:block to sit on their own lines -
+   without it the action, the attribution and the reason all run together and
+   the margin-top below is silently ignored. */
+.timeline .tl-what { display: block; font-size: 13px; }
+.timeline .tl-why { display: block; font-size: 12.5px; color: var(--ink-2); margin-top: 3px; }
 .timeline .tl-when { color: var(--muted); font-size: 12px; white-space: nowrap; }
 
 /* ---------------- feed / wall ---------------- */

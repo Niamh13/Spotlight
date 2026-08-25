@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "smoke": "node scripts/smoke.mjs",
-    "check": "node scripts/assert.mjs"
+    "check": "node scripts/assert.mjs",
+    "spacing": "node scripts/spacecheck.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

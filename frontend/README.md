@@ -21,9 +21,18 @@ npm run preview    # serve the built output locally, to check it before committi
 
 npm run smoke      # renders all 15 routes as all 4 profiles, fails on any error
 npm run check      # 26 assertions: role gating, hidden status, quarter limit, deep links
+npm run spacing    # finds text that visually collides on any page
 ```
 
-`smoke` and `check` need the Spring app running on `:8080` — they run the **real
+`spacing` catches a specific bug that is easy to miss by eye: two inline
+elements rendered side by side with no whitespace between them, so their text
+runs together. It injects the real stylesheet and checks computed styles, and
+it ignores anything inside a flex or grid parent where a `gap` already
+separates them. That is how `.tl-what` / `.tl-why` on the Activity Log were
+found — both were `<span>`s with no `display: block`, so the action, the
+attribution and the reason all ran onto one line.
+
+All three need the Spring app running on `:8080` — they run the **real
 built bundle** in a headless browser, so they test what actually ships rather
 than the source.
 
