@@ -130,7 +130,7 @@ function AuditHistory({ id }) {
   }
 
   return (
-    <ul className="timeline">
+    <ul className="timeline" id="auditBox">
       {entries.map((e) => {
         const a = ACTION[e.action] || { cls: "", g: "•", label: e.action };
         return (
@@ -159,7 +159,7 @@ function Completeness({ n, onUseMessage }) {
 
   if (!result) {
     return (
-      <button type="button" className="btn-sm" disabled={busy}
+      <button type="button" id="checkCompleteness" className="btn-sm" disabled={busy}
               onClick={() => {
                 setBusy(true);
                 api.completeness(n.id)
@@ -177,7 +177,7 @@ function Completeness({ n, onUseMessage }) {
   }
 
   return (
-    <div className={"completeness " + (result.complete ? "complete" : "incomplete")}>
+    <div id="completenessBox" className={"completeness " + (result.complete ? "complete" : "incomplete")}>
       <div className="completeness__head">
         <b>
           {result.complete
@@ -286,11 +286,11 @@ function ActionBar({ n, onDecided }) {
           setReason(msg);
           setError("");
         }} />
-        <button type="button" className="btn-approve btn-sm"
+        <button type="button" className="btn-approve btn-sm" data-act="approve"
                 onClick={() => { setPending("approve"); setError(""); }}>✓ Approve</button>
-        <button type="button" className="btn-reject btn-sm"
+        <button type="button" className="btn-reject btn-sm" data-act="reject"
                 onClick={() => { setPending("reject"); setError(""); }}>✕ Reject</button>
-        <button type="button" className="btn-sm"
+        <button type="button" className="btn-sm" data-act="request-resubmission"
                 onClick={() => { setPending("request-resubmission"); setError(""); }}>
           ↩ Request resubmission
         </button>
@@ -318,7 +318,7 @@ function ActionBar({ n, onDecided }) {
             <p className="field__hint">Included in the message to the nominator and kept in the log.</p>
           </div>
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <button type="submit" className="btn-star btn-sm" disabled={busy}>
+            <button type="submit" id="reasonConfirm" className="btn-star btn-sm" disabled={busy}>
               {busy ? "Saving…" :
                 pending === "approve" ? "Confirm approval"
                 : pending === "reject" ? "Confirm rejection" : "Send back for detail"}

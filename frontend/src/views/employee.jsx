@@ -245,7 +245,7 @@ export function Submit() {
   };
 
   const field = (id, label, type = "text", list) => (
-    <div className={"field" + (fieldErrors[id] ? " invalid" : "")}>
+    <div className={"field" + (fieldErrors[id] ? " invalid" : "")} data-field={id}>
       <label htmlFor={id}>{label} <span className="req">*</span></label>
       <input type={type} id={id} list={list} value={form[id]} onChange={set(id)} />
       <div className="err">{fieldErrors[id]}</div>
@@ -274,7 +274,7 @@ export function Submit() {
       ) : null}
 
       {openForRevision ? (
-        <div className="notice" style={{
+        <div className="notice" id="resubWrap" style={{
           borderStyle: "solid",
           borderColor: "color-mix(in srgb, var(--info) 35%, var(--border))",
           background: "color-mix(in srgb, var(--info) 7%, var(--surface))",
@@ -291,10 +291,12 @@ export function Submit() {
       <div className="grid-main">
         <div className="card"><div className="body">
           {banner ? (
-            <div className="banner bad show"><span className="glyph">●</span><span>{banner}</span></div>
+            <div className="banner bad show" id="badBanner">
+              <span className="glyph">●</span><span id="badText">{banner}</span>
+            </div>
           ) : null}
 
-          <form onSubmit={submit} noValidate autoComplete="off">
+          <form id="form" onSubmit={submit} noValidate autoComplete="off">
             <LockedNominator persona={persona} />
 
             <div className="row2">
@@ -314,26 +316,26 @@ export function Submit() {
                 .map((v) => <option key={v} value={v} />)}
             </datalist>
 
-            <div className={"field" + (fieldErrors.category ? " invalid" : "")}>
+            <div className={"field" + (fieldErrors.category ? " invalid" : "")} data-field="category">
               <label htmlFor="category">Business category <span className="req">*</span></label>
               <select id="category" value={form.category} onChange={set("category")}>
                 <option value="">Select a category…</option>
                 {categories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
-              <p className="field__hint">
+              <p className="field__hint" id="categoryHint">
                 {categories.find((c) => c.value === form.category)?.examples ||
                  "Pick the kind of impact this nomination evidences — the examples will show what that category expects."}
               </p>
               <div className="err">{fieldErrors.category}</div>
             </div>
 
-            <div className={"field" + (fieldErrors.whatText ? " invalid" : "")}>
+            <div className={"field" + (fieldErrors.whatText ? " invalid" : "")} data-field="whatText">
               <label htmlFor="whatText">WHAT — the achievement, contribution or action <span className="req">*</span></label>
               <textarea id="whatText" value={form.whatText} onChange={set("whatText")} />
               <div className="err">{fieldErrors.whatText}</div>
             </div>
 
-            <div className={"field" + (fieldErrors.howText ? " invalid" : "")}>
+            <div className={"field" + (fieldErrors.howText ? " invalid" : "")} data-field="howText">
               <label htmlFor="howText">HOW — which core value they showed, and how <span className="req">*</span></label>
               <textarea id="howText" value={form.howText} onChange={set("howText")} />
               <div className="err">{fieldErrors.howText}</div>
@@ -358,12 +360,12 @@ export function Submit() {
             </div>
 
             <div className="form-actions">
-              <button type="submit" className="btn-star" disabled={busy}>
+              <button type="submit" id="submitBtn" className="btn-star" disabled={busy}>
                 {busy ? "Submitting…" : openForRevision ? "Resubmit Star Award" : "Submit Star Award"}
               </button>
-              <button type="button" className="linkish" onClick={fillSample}>Fill sample</button>
-              <button type="button" className="linkish" onClick={fillSelf}>Try self-nomination</button>
-              <button type="button" className="linkish"
+              <button type="button" id="sampleBtn" className="linkish" onClick={fillSample}>Fill sample</button>
+              <button type="button" id="selfBtn" className="linkish" onClick={fillSelf}>Try self-nomination</button>
+              <button type="button" id="clearBtn" className="linkish"
                       onClick={() => { setForm({ nomineeName: "", nomineeEmail: "", practice: "",
                                                  location: "", category: "", whatText: "", howText: "" });
                                        setFieldErrors({}); setBanner(null); }}>Clear</button>

@@ -37,7 +37,7 @@ function ThemeControl() {
 
   return (
     <>
-      <div className="themebar">
+      <div className="themebar" id="themeControl">
         <span className="themebar__label" id="themeLabel">Appearance</span>
         <div className="segmented" role="group" aria-labelledby="themeLabel">
           {[["light", "☀", "Light"], ["dark", "☾", "Dark"], ["auto", "◐", "Match system"]]
@@ -55,7 +55,7 @@ function ThemeControl() {
 
       <div className="themebar themebar--sub">
         <label className="greyscale">
-          <input type="checkbox" checked={grey}
+          <input type="checkbox" id="greyscaleToggle" checked={grey}
                  onChange={(e) => {
                    setGrey(e.target.checked);
                    toast({
@@ -93,7 +93,7 @@ function PersonaSwitcher() {
 
   return (
     <div className="whoami" ref={box}>
-      <button type="button" className="whoami__btn" aria-haspopup="true" aria-expanded={open}
+      <button type="button" id="personaBtn" className="whoami__btn" aria-haspopup="true" aria-expanded={open}
               onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}>
         <Avatar name={persona.name} sm />
         <span className="whoami__text">
@@ -104,10 +104,10 @@ function PersonaSwitcher() {
       </button>
 
       {open ? (
-        <div className="persona-menu" role="menu">
+        <div className="persona-menu" id="personaMenu" role="menu">
           <div className="persona-menu__label">Switch profile</div>
           {PERSONAS.map((o) => (
-            <button key={o.id} type="button" role="menuitem"
+            <button key={o.id} type="button" role="menuitem" data-persona={o.id}
                     className={"persona-opt" + (o.id === persona.id ? " on" : "")}
                     onClick={() => { switchPersona(o.id); setOpen(false); }}>
               <Avatar name={o.name} sm />
@@ -143,7 +143,7 @@ export default function Sidebar() {
   return (
     <aside>
       <Logo />
-      <nav>
+      <nav id="nav">
         {groups.map((g) => (
           <React.Fragment key={g}>
             <div className="navgroup">{g}</div>

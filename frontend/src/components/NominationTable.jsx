@@ -57,7 +57,7 @@ export default function NominationTable({
         </thead>
         <tbody>
           {list.map((n) => (
-            <tr key={n.id}
+            <tr key={n.id} data-id={n.id}
                 className={"clickable" + (selectedId === n.id ? " selected" : "")}
                 onClick={() => onOpen(n.id)}>
               {showCompare ? (

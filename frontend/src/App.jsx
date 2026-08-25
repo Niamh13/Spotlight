@@ -63,7 +63,7 @@ export default function App() {
     <>
       <div className="app">
         <Sidebar />
-        <main>{ready && View ? <View /> : null}</main>
+        <main id="view">{ready && View ? <View /> : null}</main>
       </div>
       <ToastHost />
     </>

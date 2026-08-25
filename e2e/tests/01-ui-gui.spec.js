@@ -57,10 +57,9 @@ test.describe('UI / GUI', () => {
     test.skip(!(await form.isVisible().catch(() => false)),
       'Sarah has no available quarter slot in this run.');
 
-    // Select real enum values so Jackson deserialization succeeds; leave
+    // Select a real category so Jackson deserialization succeeds; leave
     // every string field blank so @Valid's field-message map path runs.
     await page.locator('#category').selectOption('CUSTOMER_IMPACT');
-    await page.locator('#coreValue').selectOption('DRIVE');
     await page.locator('#submitBtn').click();
 
     const nomineeNameError = page.locator('[data-field="nomineeName"] .err');
@@ -82,7 +81,6 @@ test.describe('UI / GUI', () => {
     await expect(page.locator('#nomineeName')).not.toHaveValue('');
     await expect(page.locator('#whatText')).not.toHaveValue('');
     await expect(page.locator('#category')).not.toHaveValue('');
-    await expect(page.locator('#coreValue')).not.toHaveValue('');
 
     await page.locator('#clearBtn').click();
     await expect(page.locator('#nomineeName')).toHaveValue('');
@@ -218,7 +216,12 @@ test.describe('UI / GUI', () => {
     await expect(page.locator('#nav a[href="#/submit"]')).toBeAttached();
   });
 
-  test('UI-10: category and core-value picker hint text swaps live when the selection changes', async ({ page }) => {
+  test('UI-10: category picker hint text swaps live when the selection changes', async ({ page }) => {
+    // There is no core-value picker any more - the form asks for the value in
+    // prose in the HOW text, and the server detects it from there (see
+    // CoreValue.detectIn()) rather than from a dropdown with its own hint/
+    // placeholder pair. This test now only covers the category hint, which
+    // still lives on the form as a live-swapping <select>.
     await page.goto('/');
     await switchPersona(page, 'sarah');
     await goToView(page, 'submit');
@@ -238,14 +241,6 @@ test.describe('UI / GUI', () => {
     await page.locator('#category').selectOption('QUALITY_AND_COMPLIANCE');
     const secondChoiceHint = await categoryHint.textContent();
     expect(secondChoiceHint).not.toBe(firstChoiceHint);
-
-    // The same live-swap behavior applies to the core-value picker's hint and
-    // the HOW field's placeholder, which is tied to the chosen value's label.
-    const coreValueHint = page.locator('#coreValueHint');
-    const howBox = page.locator('#howText');
-    await page.locator('#coreValue').selectOption('NO_EGO');
-    await expect(coreValueHint).toContainText(/outcome ahead of personal credit/i);
-    await expect(howBox).toHaveAttribute('placeholder', /No Ego/);
   });
 
   test('T-26: full WHAT/HOW text is already visible in the same render as the Approve/Reject buttons '

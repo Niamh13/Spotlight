@@ -26,16 +26,18 @@ async function goToView(page, routeId) {
   await page.goto(`/#/${routeId}`);
 }
 
-/** Fills the submission form (category/coreValue are AwardCategory/CoreValue
- * enum names, e.g. "CUSTOMER_IMPACT" / "DRIVE"). */
+/** Fills the submission form (category is an AwardCategory enum name, e.g.
+ * "CUSTOMER_IMPACT"). There is no coreValue field to select - the form asks
+ * for the value in prose in the HOW text, and the server detects it from
+ * there (see CoreValue.detectIn()), so a caller wanting a specific value
+ * detected should name it in howText. */
 async function fillSubmissionForm(page, { nomineeName, nomineeEmail, practice, location,
-  category, coreValue, whatText, howText }) {
+  category, whatText, howText }) {
   await page.locator('#nomineeName').fill(nomineeName);
   await page.locator('#nomineeEmail').fill(nomineeEmail);
   await page.locator('#practice').fill(practice);
   await page.locator('#location').fill(location);
   await page.locator('#category').selectOption(category);
-  await page.locator('#coreValue').selectOption(coreValue);
   await page.locator('#whatText').fill(whatText);
   await page.locator('#howText').fill(howText);
 }

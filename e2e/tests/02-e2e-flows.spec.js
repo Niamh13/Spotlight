@@ -52,21 +52,16 @@ test.describe('E2E flows', () => {
       practice: 'Cloud Engineering',
       location: 'Dublin',
       category: 'CUSTOMER_IMPACT',
-      coreValue: 'DRIVE',
       whatText: 'They redesigned the deployment pipeline from scratch, cutting release '
         + 'time from two days down to twenty minutes for the whole team.',
       howText: 'They showed real drive, mapping every failure mode themselves without '
         + 'being asked and fixing each one before it caused an incident.',
     });
     await page.locator('#submitBtn').click();
-    await expect(page.locator('#okBanner')).toBeVisible({ timeout: 10_000 });
 
-    // A successful submit leaves the confirmation banner up over the same
-    // form rather than yanking it away - the app doesn't re-fetch quarter
-    // state on a same-hash navigation. Reload to force the fresh fetch a
-    // real page revisit would also trigger, then the "already used" panel
-    // for this quarter should show in place of the form.
-    await page.reload();
+    // A successful submit re-fetches quarter state itself (see Submit()'s
+    // .then() chain) and the "already used" panel for this quarter replaces
+    // the form reactively, with no manual reload needed.
     await expect(page.getByText(/You've nominated for/i)).toBeVisible({ timeout: 10_000 });
 
     // Switch to Colette and approve it from the Review Queue.
@@ -108,7 +103,6 @@ test.describe('E2E flows', () => {
         practice: 'Consulting',
         location: 'Cork',
         category: 'QUALITY_AND_COMPLIANCE',
-        coreValue: 'EXCELLENCE',
         whatText: 'They rebuilt the release checklist so nothing depends on memory, '
           + 'catching a config error that would have taken down the client portal.',
         howText: 'They went well beyond the ask, tracing every past incident back to a '
@@ -138,24 +132,24 @@ test.describe('E2E flows', () => {
     }
 
     // Discovery: revision mode pre-fills only originalNominationId (and the
-    // banner) - nomineeName/nomineeEmail/practice/location/category/coreValue
-    // start blank despite the "your previous entry" framing, and all are
-    // still required. The whole form has to be filled again, not just
-    // whatText/howText.
+    // banner) - nomineeName/nomineeEmail/practice/location/category start
+    // blank despite the "your previous entry" framing, and all are still
+    // required. The whole form has to be filled again, not just
+    // whatText/howText. (Core value isn't a separate field - it's read back
+    // out of the HOW text, which is why it names "drive" explicitly below.)
     await fillSubmissionForm(page, {
       nomineeName: 'Alex Rivera',
       nomineeEmail: uniqueEmail('e2e2-nominee'),
       practice: 'Cloud Engineering',
       location: 'Belfast',
       category: 'QUALITY_AND_COMPLIANCE',
-      coreValue: 'DRIVE',
       whatText: 'Revised: they rebuilt the deployment checklist end to end, cutting the '
         + 'release window from four hours to twenty minutes and removing every manual step.',
       howText: 'Revised: this showed real drive - nobody asked them to rework the process, '
         + 'they just kept pushing until every manual step was gone.',
     });
     await page.locator('#submitBtn').click();
-    await expect(page.locator('#okBanner')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/You've nominated for/i)).toBeVisible({ timeout: 10_000 });
 
     await switchPersona(page, 'colette');
     await goToView(page, 'queue');
