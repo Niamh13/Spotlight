@@ -62,9 +62,11 @@ the distinction says so on the screen.
 - Guided form: WHAT, HOW, nominee, practice, location.
 - **Business category** — one of five, required. Picking one shows the kind of
   evidence it expects, which is most of why it exists.
-- **Core value** — one of Version 1's six, required, sitting directly above the
-  HOW box so that box asks a specific question ("how did they show Personal
-  Commitment?") rather than a generic one.
+- **Core value** — no longer a dropdown. The six values are listed under the
+  HOW box as prompts, and the value is read back out of what was written. A
+  dropdown let someone pick a value and then describe something else entirely;
+  detecting it from the text means the recorded value and the words behind it
+  cannot disagree.
 - Nominator identity is fixed from the signed-in profile and cannot be edited,
   so a nomination cannot be filed under someone else's name.
 - Self-nomination blocked outright (`400`).
@@ -120,7 +122,9 @@ deployment works untouched.
 - Approve, reject, or request resubmission. Reject and resubmission require a
   reason; all three accept an optional internal note.
 - A nomination can only be decided once (`409` on a second attempt).
-- Filters by category, practice and location.
+- Filters by category, practice, location and name, which persist as you move
+  between the status tiles rather than resetting.
+- Tick two or more rows to read them side by side.
 
 ### Communications and logging
 
@@ -138,8 +142,9 @@ message says so.
 ### Coordinator views
 
 - **Review Queue** — decisions, with progress.
-- **AI Review** — every assessment weakest-first, triage bands, and which
-  nominations could *not* be scored.
+- **AI Summary** — every assessment weakest-first, triage bands, which
+  nominations could *not* be scored, and a link straight into the one you are
+  reading.
 - **Quarters** — participation per quarter, who nominated whom.
 - **Activity Log** — every recorded action newest-first, with the messages.
 
@@ -314,18 +319,21 @@ Rules worth poking at:
 
 ## Project layout
 
+> For a full walkthrough — every technology, where it is implemented, how it
+> works and which file to open for any given change — see
+> **[docs/technical-guide.md](docs/technical-guide.md)**.
+
+
 ```
 src/main/java/com/version1/recognition/
 ├── RecognitionApplication.java
 ├── common/
 │   └── GlobalExceptionHandler.java
-└── nomination/                       # domain: entity, repositories, enums, services
-    ├── Nomination.java
-    ├── NominationService.java        # submission rules and decisions
-    ├── TaggingService.java           # runs every check
-    ├── Quarter.java                  # one definition of "which quarter", used by five features
-    ├── AwardCategory.java  CoreValue.java
-    ├── AuditLogEntry.java  SentComm.java  NominationFlag.java
+└── nomination/                       # everything about nominations, in layers
+    ├── model/                        # entity, enums, value types (Nomination, Quarter, CoreValue...)
+    ├── repository/                   # Spring Data interfaces
+    ├── service/                      # submission rules, tagging, completeness
+    ├── exception/                    # domain exceptions -> HTTP statuses
     ├── check/                        # the six rules, one class each
     ├── evaluation/                   # AI path: Groq, mock, and the selector between them
     ├── comms/                        # message composition
@@ -334,14 +342,43 @@ src/main/java/com/version1/recognition/
 src/main/resources/
 ├── db/changelog/                     # Liquibase migrations
 ├── prompts/                          # AI prompt, hot-reloaded
-└── static/                           # index.html, app.js, app.css
+└── static/                           # built front end, committed so Maven alone runs it
+
+frontend/                             # React source (Vite)
+├── src/
+│   ├── main.jsx  App.jsx             # mount point and route dispatch
+│   ├── store.jsx                     # one context: persona, data, routing, toasts
+│   ├── api.js  constants.js  format.js
+│   ├── components/                   # Sidebar, NominationTable, DetailPane, FilterBar, ui
+│   └── views/                        # employee, coordinator, and the UI-only screens
+└── scripts/                          # headless render checks
 ```
 
-The front end is **plain HTML, CSS and JavaScript** — no framework, no build
-step, no npm. Hash routing, screens rendered as strings, `fetch` against the
-API. That keeps the project runnable with nothing but Maven, at the cost of
-~110KB of hand-written JS in one file. A framework becomes worth it when
-multi-step forms or live updates arrive; it doesn't change how anything looks.
+The front end is **React 18, built with Vite**. It replaced a hand-written
+string-rendering front end that had grown to ~2,800 lines in one file, where
+every screen re-rendered itself by rebuilding HTML and re-attaching its own
+event handlers. The behaviour is identical; the difference is that state now
+lives in one place and the screens read it.
+
+**You do not need Node to run this project.** `frontend/` builds into
+`src/main/resources/static/`, and that output is committed — so `mvn
+spring-boot:run` serves the built front end exactly as before. Node is only
+needed to change the front end:
+
+```bash
+cd frontend
+npm install
+npm run build      # writes index.html + assets/ into src/main/resources/static
+npm run dev        # optional: Vite dev server on :5173, proxies /api to :8080
+```
+
+Two checks run the built bundle headlessly against a running server, which is
+how the React conversion was verified screen by screen:
+
+```bash
+npm run smoke      # mounts every route as every profile, fails on any render error
+npm run check      # asserts role gating, hidden status, the quarter limit, deep links
+```
 
 ---
 
@@ -349,9 +386,11 @@ multi-step forms or live updates arrive; it doesn't change how anything looks.
 
 Ordered by how much they matter.
 
-1. **No automated tests.** None. The quarter limit, the six checks, the
-   double-decision guard and the resubmission exemption are exactly the logic
-   that breaks silently.
+1. **Thin test coverage.** `NominationServiceTest` covers the submission
+   rules, and `frontend/scripts/` renders every screen headlessly and asserts
+   role gating and the quarter limit. The six checks, the decision workflow and
+   the comms templates have no tests at all, and that is where silent breakage
+   would land.
 2. **No authentication.** The profile switcher changes the view, not access.
    Anyone can call the API as anyone. The quarter limit is re-checked
    server-side against whatever email arrives, so it holds for the identity

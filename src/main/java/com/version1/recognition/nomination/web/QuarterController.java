@@ -1,17 +1,10 @@
 package com.version1.recognition.nomination.web;
 
-import com.version1.recognition.nomination.Nomination;
-import com.version1.recognition.nomination.NominationRepository;
-import com.version1.recognition.nomination.NominationService;
-import com.version1.recognition.nomination.NominationStatus;
-import com.version1.recognition.nomination.Quarter;
-
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
+import com.version1.recognition.nomination.model.Nomination;
+import com.version1.recognition.nomination.model.NominationStatus;
+import com.version1.recognition.nomination.model.Quarter;
+import com.version1.recognition.nomination.repository.NominationRepository;
+import com.version1.recognition.nomination.service.NominationService;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -20,6 +13,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Quarter-level views: what quarter it is, whether you've used your nomination,

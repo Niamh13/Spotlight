@@ -30,3 +30,10 @@ data/
 *.env
 !.env.example
 application-local.properties
+
+# --- Front end ---
+# frontend/ holds the React source. Its build output lands in
+# src/main/resources/static/ and IS committed, so the project still runs with
+# Maven alone and nobody needs Node to check it out.
+frontend/node_modules/
+frontend/.vite/

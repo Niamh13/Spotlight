@@ -1,12 +1,10 @@
 package com.version1.recognition.nomination.web;
 
-import com.version1.recognition.nomination.AwardCategory;
-import com.version1.recognition.nomination.CoreValue;
-
+import com.version1.recognition.nomination.model.AwardCategory;
+import com.version1.recognition.nomination.model.CoreValue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-
 import java.util.UUID;
 
 public class NominationRequest {

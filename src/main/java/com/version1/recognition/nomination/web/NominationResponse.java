@@ -1,11 +1,10 @@
 package com.version1.recognition.nomination.web;
 
-import com.version1.recognition.nomination.AwardCategory;
-import com.version1.recognition.nomination.CoreValue;
-import com.version1.recognition.nomination.Nomination;
-import com.version1.recognition.nomination.NominationStatus;
 import com.version1.recognition.nomination.evaluation.AiEvaluationStatus;
-
+import com.version1.recognition.nomination.model.AwardCategory;
+import com.version1.recognition.nomination.model.CoreValue;
+import com.version1.recognition.nomination.model.Nomination;
+import com.version1.recognition.nomination.model.NominationStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;

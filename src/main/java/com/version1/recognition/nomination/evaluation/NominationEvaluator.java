@@ -1,6 +1,7 @@
 package com.version1.recognition.nomination.evaluation;
 
-import com.version1.recognition.nomination.Nomination;
+import com.version1.recognition.nomination.model.Nomination;
+
 
 /**
  * Scores a nomination and explains the score.

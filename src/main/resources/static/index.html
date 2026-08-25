@@ -4,82 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Spotlight</title>
-<link rel="stylesheet" href="app.css?v=20260821g">
+  <script type="module" crossorigin src="/assets/app-C68192t3.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/app-BBzYBFpP.css">
 </head>
 <body>
-
-<div class="app">
-
-  <aside>
-    <!-- Supplied artwork, used unmodified. It is a wide 3:2 emblem with its own
-         internal margins, so it sits above the wordmark rather than beside it -
-         squeezed into a square next to the text it would be too small to read.
-         The PNG has real transparency, so it works on both light and dark. -->
-    <a class="logo" href="#/home" aria-label="Spotlight — home">
-      <img class="logo__img" src="spotlight-logo.png?v=20260821g"
-           alt="" width="612" height="408">
-      <span class="logo__words">
-        <span class="logo__name">Spotlight</span>
-        <span class="logo__tagline">Recognising impact</span>
-      </span>
-    </a>
-
-    <nav id="nav"></nav>
-
-    <!-- Appearance. Three states rather than two: an explicit Light or Dark
-         choice sticks, and Auto follows the operating system the way the page
-         behaved before anyone touched this control. -->
-    <div class="themebar">
-      <span class="themebar__label" id="themeLabel">Appearance</span>
-      <div class="segmented" role="group" aria-labelledby="themeLabel" id="themeControl">
-        <button type="button" class="segmented__btn" data-theme-choice="light" title="Light">
-          <span aria-hidden="true">☀</span><span class="sr-only">Light</span>
-        </button>
-        <button type="button" class="segmented__btn" data-theme-choice="dark" title="Dark">
-          <span aria-hidden="true">☾</span><span class="sr-only">Dark</span>
-        </button>
-        <button type="button" class="segmented__btn" data-theme-choice="auto" title="Match system">
-          <span aria-hidden="true">◐</span><span class="sr-only">Match system</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Greyscale is independent of light/dark: it strips the accent hues but
-         keeps whichever background you chose. Useful for checking that nothing
-         relies on colour alone to be readable. -->
-    <div class="themebar themebar--sub">
-      <label class="greyscale">
-        <input type="checkbox" id="greyscaleToggle">
-        <span>Greyscale</span>
-      </label>
-    </div>
-
-    <!-- Profile switcher. Sits in the bottom corner of the sidebar, where the
-         signed-in user normally lives, so switching account is where you would
-         reach for it rather than hidden in a settings screen. -->
-    <div class="whoami" id="whoami">
-      <button type="button" class="whoami__btn" id="personaBtn"
-              aria-haspopup="true" aria-expanded="false" aria-controls="personaMenu">
-        <span id="personaAvatar"></span>
-        <span class="whoami__text">
-          <span class="name" id="personaName"></span>
-          <span class="role" id="personaRole"></span>
-        </span>
-        <span class="whoami__chev" aria-hidden="true">⌃</span>
-      </button>
-
-      <div class="persona-menu" id="personaMenu" role="menu" hidden></div>
-      <div class="buildstamp" title="Front-end build currently loaded">build 20260821g</div>
-    </div>
-  </aside>
-
-  <main id="view"></main>
-</div>
-
-<!-- Toast host. Announcements are polite so a screen reader finishes the current
-     sentence before reading the account change rather than interrupting. -->
-<div class="toast-host" id="toastHost" role="status" aria-live="polite"></div>
-
-<script src="app.js?v=20260821g"></script>
+<div id="root"></div>
 </body>
 </html>

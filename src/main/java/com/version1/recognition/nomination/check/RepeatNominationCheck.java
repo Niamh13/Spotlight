@@ -1,14 +1,12 @@
 package com.version1.recognition.nomination.check;
 
-import com.version1.recognition.nomination.AiFlag;
-import com.version1.recognition.nomination.Nomination;
-import com.version1.recognition.nomination.Quarter;
-
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-
+import com.version1.recognition.nomination.model.AiFlag;
+import com.version1.recognition.nomination.model.Nomination;
+import com.version1.recognition.nomination.model.Quarter;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 /**
  * Was this same person also nominated in the immediately preceding quarter?
