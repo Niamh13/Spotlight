@@ -70,8 +70,8 @@ Four profiles are available from the switcher in the bottom-left corner:
 
 | Profile | Role | State |
 |---|---|---|
-| Sarah Murphy | Employee | Has not nominated this quarter — use this to test the form |
-| Calvin Ho | Employee | Already nominated (pending) |
+| Calvin Ho | Employee | Has not nominated this quarter — use this to test the form |
+| Sarah Murphy | Employee | Already nominated (pending) |
 | Jamie Doyle | Employee | Nomination was sent back for more detail |
 | Colette Lynch | Admin / HR | Coordinator — review queue, dashboard, activity log |
 
@@ -291,8 +291,8 @@ for a schema-only database.
 curl -X POST http://localhost:8080/api/nominations \
   -H "Content-Type: application/json" \
   -d '{
-    "nominatorName": "Sarah Murphy",
-    "nominatorEmail": "sarah.murphy@version1.com",
+    "nominatorName": "Calvin Ho",
+    "nominatorEmail": "calvin.ho@version1.com",
     "nomineeName": "Alex Rivera",
     "nomineeEmail": "alex.rivera@version1.com",
     "practice": "Cloud Engineering",
@@ -310,7 +310,7 @@ curl -X POST http://localhost:8080/api/nominations/<id>/approve \
 
 curl http://localhost:8080/api/nominations/<id>/audit-log   # decision, note and both messages
 curl http://localhost:8080/api/activity                     # everything, newest first
-curl "http://localhost:8080/api/quarters/current?email=sarah.murphy@version1.com"
+curl "http://localhost:8080/api/quarters/current?email=calvin.ho@version1.com"
 ```
 
 Rules worth poking at:
