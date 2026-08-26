@@ -1,15 +1,26 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { useStore } from "./store.jsx";
 import Sidebar from "./components/Sidebar.jsx";
-import { Home, Submit, Mine, Stars } from "./views/employee.jsx";
-import { Queue, AiSummary, Quarters, Activity, Dashboard } from "./views/coordinator.jsx";
-import { Praises, PraiseNew, Mtm, MtmNew, Reports, Help } from "./views/shell.jsx";
+// One file per screen, named after what you would look for.
+import Home           from "./views/Home.jsx";
+import Submit         from "./views/Submit.jsx";
+import MyRecognition  from "./views/MyRecognition.jsx";
+import StarAwards     from "./views/StarAwards.jsx";
+import Queue          from "./views/Queue.jsx";
+import AiSummary      from "./views/AiSummary.jsx";
+import Quarters       from "./views/Quarters.jsx";
+import ActivityLog    from "./views/ActivityLog.jsx";
+import Dashboard      from "./views/Dashboard.jsx";
+import Reports        from "./views/Reports.jsx";
+import Help           from "./views/Help.jsx";
+import { Praises, PraiseNew } from "./views/Praises.jsx";
+import { Mtm, MtmNew } from "./views/MomentsThatMatter.jsx";
 
 const VIEWS = {
   home: Home,
   submit: Submit,
-  mine: Mine,
-  stars: Stars,
+  mine: MyRecognition,
+  stars: StarAwards,
   praises: Praises,
   "praises/new": PraiseNew,
   mtm: Mtm,
@@ -17,7 +28,7 @@ const VIEWS = {
   queue: Queue,
   ai: AiSummary,
   quarters: Quarters,
-  activity: Activity,
+  activity: ActivityLog,
   dashboard: Dashboard,
   reports: Reports,
   help: Help,

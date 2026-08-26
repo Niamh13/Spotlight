@@ -1,97 +1,8 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useStore } from "../store.jsx";
 import { api } from "../api.js";
-import { fmtDate, fmtDay, ago } from "../format.js";
-import {
-  Avatar, Kpi, RoleChip, TagLive, PageHead, Empty, StarLockup, QuarterChip,
-} from "../components/ui.jsx";
-import NominationTable from "../components/NominationTable.jsx";
-import DetailPane from "../components/DetailPane.jsx";
-
-/** Every nomination where the current profile is on either side. */
-function involvesMe(n, email) {
-  const me = email.toLowerCase();
-  return String(n.nominatorEmail || "").toLowerCase() === me ||
-         String(n.nomineeEmail || "").toLowerCase() === me;
-}
-
-export function Home() {
-  const { persona, isCoordinator, nominations, quarter } = useStore();
-  const mine = nominations.filter((n) => involvesMe(n, persona.email));
-  const recent = (isCoordinator ? nominations : mine).slice(0, 5);
-
-  const counts = {
-    PENDING_REVIEW: nominations.filter((n) => n.status === "PENDING_REVIEW").length,
-    APPROVED: nominations.filter((n) => n.status === "APPROVED").length,
-    NEEDS_RESUBMISSION: nominations.filter((n) => n.status === "NEEDS_RESUBMISSION").length,
-  };
-
-  return (
-    <>
-      <PageHead
-        title="What would you like to recognise today?"
-        sub="Celebrate the impact and contributions of your colleagues."
-        right={<><RoleChip role={persona.role} /><TagLive /></>}
-      />
-
-      <div className="chooser">
-        <div className="choice star">
-          <div className="badge">★</div><h3>Star Award</h3>
-          <p>Recognise outstanding contributions that go above and beyond.</p>
-          <a className="btn btn-star" href="#/submit">Submit Star Award</a>
-        </div>
-        <div className="choice praise">
-          <div className="badge">♡</div><h3>Praise</h3>
-          <p>Send a thank you and recognition for everyday wins and great work.</p>
-          <a className="btn btn-praise" href="#/praises/new">Send a Praise</a>
-        </div>
-        <div className="choice mtm">
-          <div className="badge">🎁</div><h3>Moments that Matter</h3>
-          <p>Request a gift or support for life events and special moments.</p>
-          <a className="btn btn-mtm" href="#/mtm/new">Request MtM</a>
-        </div>
-      </div>
-
-      {isCoordinator ? (
-        <div className="kpis">
-          <Kpi cls="k-star" label="Pending review" value={counts.PENDING_REVIEW}
-               foot={<a className="linkish" href="#/queue">Review now</a>} />
-          <Kpi cls="k-praise" label="Approved" value={counts.APPROVED} />
-          <Kpi cls="k-mtm" label="Needs resubmission" value={counts.NEEDS_RESUBMISSION} />
-          <Kpi cls="k-total" label="Total nominations" value={nominations.length} />
-        </div>
-      ) : null}
-
-      <div className="card">
-        <header>
-          <h2>{isCoordinator ? "Recent Recognition" : "Recognition involving you"}</h2>
-          <span className="ep">Star Awards only</span>
-          <div className="spacer" />
-          {isCoordinator
-            ? <a className="linkish" href="#/queue">Open review queue</a>
-            : <a className="linkish" href="#/mine">View all</a>}
-        </header>
-        <div className="body" style={{ paddingTop: "4px", paddingBottom: "4px" }}>
-          {recent.length ? recent.map((n) => (
-            <div className="feed-item" key={n.id}>
-              <div className="ico" style={{ background: "var(--star-soft)", color: "var(--star)" }}>★</div>
-              <div className="txt">
-                <div className="l1"><b>{n.nomineeName}</b> was nominated for a Star Award by {n.nominatorName}</div>
-                <div className="l2">{String(n.whatText || "").slice(0, 150)}
-                  {(n.whatText || "").length > 150 ? "…" : ""}</div>
-              </div>
-              <div className="ago">{ago(n.submittedAt)}</div>
-            </div>
-          )) : (
-            <Empty>{isCoordinator
-              ? "No recognition recorded yet."
-              : "Nothing involving you yet — submit the first Star Award."}</Empty>
-          )}
-        </div>
-      </div>
-    </>
-  );
-}
+import { fmtDate, fmtDay } from "../format.js";
+import { Avatar, PageHead, QuarterChip, TagLive } from "../components/ui.jsx";
 
 /* Nominator identity is rendered as fixed facts rather than inputs. It removes
    the "nominate under a colleague's name for a second entry" route, and stops
@@ -124,7 +35,7 @@ function LockedNominator({ persona }) {
   );
 }
 
-export function Submit() {
+export default function Submit() {
   const { persona, quarter, categories, coreValues, toast,
           loadNominations, loadQuarter, loadQuarterHistory } = useStore();
 
@@ -390,87 +301,6 @@ export function Submit() {
             in the bottom-left corner to submit as someone else.
           </p>
         </div>
-      </div>
-    </>
-  );
-}
-
-export function Mine() {
-  const { persona, nominations } = useStore();
-  const [openId, setOpenId] = useState(null);
-
-  const mine = nominations.filter((n) => involvesMe(n, persona.email));
-  const submitted = mine.filter(
-    (n) => String(n.nominatorEmail || "").toLowerCase() === persona.email.toLowerCase());
-  const received = mine.filter(
-    (n) => String(n.nomineeEmail || "").toLowerCase() === persona.email.toLowerCase());
-
-  return (
-    <>
-      <PageHead title="My Recognition"
-                sub="Nominations you submitted, and nominations you received."
-                right={<><RoleChip role={persona.role} /><TagLive /></>} />
-
-      <div className="notice"><span className="glyph">▲</span><div>
-        <b>No sign-in yet.</b> Everyone's nominations are loaded; this page filters
-        to <b>{persona.email}</b> in the browser. It is a demonstration of the employee
-        view, not access control.
-      </div></div>
-
-      <div className="kpis">
-        <Kpi cls="k-star" label="Submitted by you" value={submitted.length} />
-        <Kpi cls="k-praise" label="Received by you" value={received.length} />
-      </div>
-
-      <div className="card" style={{ marginBottom: "18px" }}>
-        <header><h2>Submitted by you</h2></header>
-        <NominationTable list={submitted} onOpen={setOpenId} selectedId={openId} />
-      </div>
-
-      <div className="card">
-        <header><h2>Received by you</h2></header>
-        <NominationTable list={received} onOpen={setOpenId} selectedId={openId} />
-        {openId ? <DetailPane id={openId} onClose={() => setOpenId(null)} onDecided={() => {}} /> : null}
-      </div>
-    </>
-  );
-}
-
-/* Star Awards is the same page for everyone: the approved awards, as a wall of
-   winners. The coordinator's working view - every status, filters, decision
-   buttons - lives on the Review Queue, which is where the work happens. */
-export function Stars() {
-  const { persona, isCoordinator, nominations } = useStore();
-  const [openId, setOpenId] = useState(null);
-  const approved = nominations.filter((n) => n.status === "APPROVED");
-
-  return (
-    <>
-      <div className="star-hero">
-        <StarLockup subtitle="Spotlight" />
-        <h1>Colleagues recognised for going above and beyond</h1>
-        <p>The Star Award is for outstanding contribution — not for doing the job well,
-          but for the thing nobody expected and everybody felt.</p>
-      </div>
-      <div className="head-row" style={{ marginBottom: "18px" }}>
-        <RoleChip role={persona.role} /><TagLive />
-      </div>
-
-      <div className="notice"><span className="glyph">▲</span><div>
-        <b>Approved awards only.</b>{" "}
-        {isCoordinator
-          ? <>Everything still in flight is on the <a href="#/queue">Review Queue</a>.</>
-          : "Nominations still under review are visible to recognition coordinators, not to everyone."}
-      </div></div>
-
-      <div className="card">
-        <header>
-          <h2>Approved Star Awards</h2>
-          <div className="spacer" />
-          <span className="ep">{approved.length} approved</span>
-        </header>
-        <NominationTable list={approved} onOpen={setOpenId} selectedId={openId} />
-        {openId ? <DetailPane id={openId} onClose={() => setOpenId(null)} onDecided={() => {}} /> : null}
       </div>
     </>
   );

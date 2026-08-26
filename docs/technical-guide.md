@@ -137,8 +137,9 @@ recognition-platform/
         ├── constants.js         Personas, routes, statuses, colours
         ├── format.js            Date and name formatting
         ├── app.css              All styling
+        ├── selectors.js         Shared ways of narrowing the list
         ├── components/          Reusable pieces
-        └── views/               One file per group of screens
+        └── views/               One file per screen
 ```
 
 ### The two `static/` folders — don't get confused
@@ -157,7 +158,7 @@ The build output is **committed on purpose**, so anyone can clone this and run
 Follow one nomination from click to database. Each step names the file.
 
 ```
- 1. Employee fills the form            frontend/src/views/employee.jsx  (Submit)
+ 1. Employee fills the form            frontend/src/views/Submit.jsx
  2. POST /api/nominations              frontend/src/api.js
  3. Field validation (@NotBlank etc.)  nomination/web/NominationRequest.java
  4. Controller receives it             nomination/web/NominationController.java
@@ -169,7 +170,7 @@ Follow one nomination from click to database. Each step names the file.
  6. Saved as PENDING_REVIEW            nomination/repository/NominationRepository
  7. Six rules tag it                   nomination/service/TaggingService.java
  8. AI scores it                       nomination/evaluation/EvaluatorSelector
- 9. Coordinator opens the queue        frontend/src/views/coordinator.jsx
+ 9. Coordinator opens the queue        frontend/src/views/Queue.jsx
 10. Approve / reject / send back       nomination/service/NominationService.java
 11. Emails composed (not sent)         nomination/comms/NotificationService.java
 12. Audit entry written                model/AuditLogEntry.java
@@ -299,14 +300,19 @@ limit fired).
 
 ### `views/` — the screens
 
-| File | Screens |
-|---|---|
-| `employee.jsx` | Home, Submit, My Recognition, Star Awards |
-| `coordinator.jsx` | Review Queue, AI Summary, Quarters, Activity Log, Dashboard |
-| `shell.jsx` | Praises, Send a Praise, Moments that Matter, Request MtM, Reports, Help |
+**One file per screen**, named after what you would look for. Every route in
+`constants.js` has a file of the same name here.
 
-Everything in `shell.jsx` is **screen only** — no backend behind it. Each of
-those screens says so on the page rather than pretending the buttons work.
+| Employee | Coordinator | No backend behind them |
+|---|---|---|
+| `Home.jsx` | `Queue.jsx` | `Praises.jsx` |
+| `Submit.jsx` | `AiSummary.jsx` | `MomentsThatMatter.jsx` |
+| `MyRecognition.jsx` | `Quarters.jsx` | `Reports.jsx` |
+| `StarAwards.jsx` | `ActivityLog.jsx` | `Help.jsx` |
+| | `Dashboard.jsx` | |
+
+The four in the last column are **screen only** — each says so on the page
+rather than pretending the buttons work.
 
 ### The 15 routes and who sees them
 
@@ -606,7 +612,7 @@ Handled centrally in `common/GlobalExceptionHandler.java`.
 
 The `reason: "QUARTER_LIMIT"` marker is why the front end can show a specific
 "you've used your nomination" panel instead of a generic error — see the
-`.catch` in `views/employee.jsx`.
+`.catch` in `views/Submit.jsx`.
 
 ---
 
@@ -650,8 +656,10 @@ must run — and **commit** — before pushing, or teammates get the old interfa
 Both need the app running on :8080.
 
 ```bash
+npm run lint       # ESLint: catches a symbol used but never imported
 npm run smoke      # mounts all 15 routes × 4 profiles, fails on any render error
 npm run check      # 26 assertions: role gating, hidden status, quarter limit, deep links
+npm run spacing    # finds text that visually collides on any page
 ```
 
 These run the **real built bundle** in jsdom, not the source — so they test
@@ -668,8 +676,8 @@ not `frontend/`.
 
 | I want to… | Open |
 |---|---|
-| Change the submission form | `frontend/src/views/employee.jsx` |
-| Change the review queue | `frontend/src/views/coordinator.jsx` |
+| Change the submission form | `frontend/src/views/Submit.jsx` |
+| Change the review queue | `frontend/src/views/Queue.jsx` |
 | Change colours, spacing, anything visual | `frontend/src/app.css` |
 | Add or rename a screen | `frontend/src/constants.js` (ROUTES) + `App.jsx` |
 | Change who sees what | `ROUTES[].roles` in `constants.js` |
