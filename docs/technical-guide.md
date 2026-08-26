@@ -433,8 +433,8 @@ Four profiles in the switcher (bottom-left):
 
 | Profile | Role | State |
 |---|---|---|
-| Sarah Murphy | Employee | Has **not** nominated this quarter — use this to test the form |
-| Calvin Ho | Employee | Already nominated (pending) |
+| Calvin Ho | Employee | Has **not** nominated this quarter — use this to test the form |
+| Sarah Murphy | Employee | Already nominated (pending) |
 | Jamie Doyle | Employee | Sent back for more detail |
 | Colette Lynch | Admin / HR | Coordinator |
 

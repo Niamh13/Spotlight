@@ -53,18 +53,18 @@ check("My Recognition renders", empMine.text.includes("My Recognition") ||
                                 empMine.text.includes("Recognition"));
 check("employee sees no status pills on My Recognition", !/class="pill /.test(empMine.html));
 
-const empSubmit = await render("calvin", "submit");
-check("Calvin has used his quarter slot and is blocked from submitting",
+const empSubmit = await render("sarah", "submit");
+check("Sarah has used her quarter slot and is blocked from submitting",
       /already|used|one nomination/i.test(empSubmit.text));
-const freeSubmit = await render("sarah", "submit");
-check("Sarah still has her slot and gets the form", freeSubmit.html.includes("<textarea"));
+const freeSubmit = await render("calvin", "submit");
+check("Calvin still has his slot and gets the form", freeSubmit.html.includes("<textarea"));
 // Stronger than a readonly input: the nominator is rendered as text, so there
 // is no field to edit in the first place.
 check("nominator identity is shown as locked text", freeSubmit.html.includes("lockedfields"));
 check("nominator name is not an editable input",
-      !new RegExp('<input[^>]*value="Sarah Murphy"').test(freeSubmit.html));
+      !new RegExp('<input[^>]*value="Calvin Ho"').test(freeSubmit.html));
 check("nominator email is not an editable input",
-      !new RegExp('<input[^>]*value="sarah.murphy@version1.com"').test(freeSubmit.html));
+      !new RegExp('<input[^>]*value="calvin.ho@version1.com"').test(freeSubmit.html));
 
 const coQueue = await render("colette", "queue");
 check("coordinator gets the Review Queue", coQueue.text.includes("Review Queue"));

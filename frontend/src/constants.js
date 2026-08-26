@@ -4,13 +4,13 @@
    identically. */
 
 export const PERSONAS = [
+  // Deliberately has no nomination of his own this quarter, so the submission
+  // flow is testable: the others have all used their slot, and with only them
+  // you never see the form itself.
   { id: "calvin", name: "Calvin Ho", email: "calvin.ho@version1.com",
     role: "EMPLOYEE", title: "Consultant · Data & AI" },
   { id: "jamie", name: "Jamie Doyle", email: "jamie.doyle@version1.com",
     role: "EMPLOYEE", title: "Engineer · Cloud Engineering" },
-  // Deliberately has no nomination of her own this quarter, so the submission
-  // flow is testable: the others have all used their slot, and with only them
-  // you never see the form itself.
   { id: "sarah", name: "Sarah Murphy", email: "sarah.murphy@version1.com",
     role: "EMPLOYEE", title: "Lead Consultant · Data & AI" },
   { id: "colette", name: "Colette Lynch", email: "colette.lynch@version1.com",

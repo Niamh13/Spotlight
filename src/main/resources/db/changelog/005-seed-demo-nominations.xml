@@ -29,14 +29,14 @@
 
         <insert tableName="nominations">
             <column name="id" value="a1000001-0000-4000-8000-000000000001"/>
-            <column name="nominator_name" value="Calvin Ho"/>
-            <column name="nominator_email" value="calvin.ho@version1.com"/>
-            <column name="nominee_name" value="Sarah Murphy"/>
-            <column name="nominee_email" value="sarah.murphy@version1.com"/>
+            <column name="nominator_name" value="Sarah Murphy"/>
+            <column name="nominator_email" value="sarah.murphy@version1.com"/>
+            <column name="nominee_name" value="Calvin Ho"/>
+            <column name="nominee_email" value="calvin.ho@version1.com"/>
             <column name="practice" value="Data &amp; AI"/>
             <column name="location" value="Dublin"/>
-            <column name="what_text" value="Led the automation of the client onboarding pipeline, cutting a five-day manual process down to under four hours. She rebuilt the ingestion step, wrote the regression suite that now guards it, and personally shadowed the operations team for a fortnight so the handover stuck."/>
-            <column name="how_text" value="This demonstrated Innovation and Customer Success. Sarah wasn't asked to do this - she spotted the bottleneck in a retro, quantified the cost to the client, and built the business case herself before writing a line of code. The client has since cited the turnaround time in their renewal."/>
+            <column name="what_text" value="Led the automation of the client onboarding pipeline, cutting a five-day manual process down to under four hours. Rebuilt the ingestion step, wrote the regression suite that now guards it, and personally shadowed the operations team for a fortnight so the handover stuck."/>
+            <column name="how_text" value="This demonstrated Innovation and Customer Success. Calvin wasn't asked to do this - they spotted the bottleneck in a retro, quantified the cost to the client, and built the business case themselves before writing a line of code. The client has since cited the turnaround time in their renewal."/>
             <column name="status" value="PENDING_REVIEW"/>
             <column name="submitted_at" valueDate="2026-08-17T09:14:00"/>
             <column name="ai_score" valueNumeric="88"/>
