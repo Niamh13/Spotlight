@@ -19,10 +19,15 @@ npm run dev        # dev server on :5173, hot reload, proxies /api to :8080
 npm run build      # writes index.html + assets/ into ../src/main/resources/static
 npm run preview    # serve the built output locally, to check it before committing
 
+npm run lint       # ESLint - catches symbols used but never imported
 npm run smoke      # renders all 15 routes as all 4 profiles, fails on any error
 npm run check      # 26 assertions: role gating, hidden status, quarter limit, deep links
 npm run spacing    # finds text that visually collides on any page
 ```
+
+`lint` is the one to run first, and the reason it exists: a symbol that is used
+but never imported is a **runtime** error, so the bundler builds it happily and
+only a browser finds it. Splitting files apart is exactly when that happens.
 
 `spacing` catches a specific bug that is easy to miss by eye: two inline
 elements rendered side by side with no whitespace between them, so their text
@@ -62,7 +67,9 @@ That is the entire runtime dependency list. Two packages.
 |---|---|
 | `vite` | Turns JSX into browser JavaScript and bundles it. Also gives the dev server its hot reload. Configured in `vite.config.js` to write straight into Spring's static folder |
 | `@vitejs/plugin-react` | Teaches Vite to read JSX and enables fast refresh. Vite doesn't handle React syntax on its own |
-| `jsdom` | A browser DOM implemented in Node, so `scripts/smoke.mjs` and `scripts/assert.mjs` can mount the real app and inspect the result without opening a browser. This is what makes "did I break any screen?" answerable in about a minute |
+| `jsdom` | A browser DOM implemented in Node, so the check scripts can mount the real app and inspect the result without opening a browser. This is what makes "did I break any screen?" answerable in about a minute |
+| `eslint`, `@eslint/js`, `globals` | Static checking. `no-undef` is the rule that matters — see above |
+| `eslint-plugin-react` | Teaches ESLint that a component used in JSX counts as used. Without it, every import looks unused |
 
 ### What we deliberately did *not* add
 
@@ -87,12 +94,16 @@ src/
 ├── constants.js      Personas, routes, statuses, colours
 ├── format.js         Dates, initials, labels
 ├── app.css           All styling
+├── selectors.js      Shared ways of narrowing the nomination list
 ├── components/       Sidebar, NominationTable, DetailPane, FilterBar, ui
-└── views/
-    ├── employee.jsx     Home, Submit, My Recognition, Star Awards
-    ├── coordinator.jsx  Review Queue, AI Summary, Quarters, Activity, Dashboard
-    └── shell.jsx        Praises, MtM, Reports, Help — screens with no backend
+└── views/            One file per screen, named after what you'd look for
+    ├── Home.jsx  Submit.jsx  MyRecognition.jsx  StarAwards.jsx
+    ├── Queue.jsx  AiSummary.jsx  Quarters.jsx  ActivityLog.jsx  Dashboard.jsx
+    └── Praises.jsx  MomentsThatMatter.jsx  Reports.jsx  Help.jsx
 ```
+
+Every route in `constants.js` maps to a file of the same name in `views/`. The
+last four have no backend behind them and say so on the page.
 
 `public/spotlight-logo.png` is copied to the output untouched.
 `index.html` is the page template — Vite injects the bundle tags into it.

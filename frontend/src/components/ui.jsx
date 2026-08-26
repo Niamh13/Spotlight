@@ -1,4 +1,3 @@
-import React from "react";
 import { STATUS, ROLE_LABEL, CATEGORY_TINT } from "../constants.js";
 import { initials, avColor, flagLabel } from "../format.js";
 

@@ -39,8 +39,8 @@ async function check(persona, route) {
     }
   }
   const isFlex = n => {
-    try { if (/flex|grid/.test(w.getComputedStyle(n).display || "")) return true; } catch {}
-    try { if (/flex|grid/.test(n.style?.display || "")) return true; } catch {}
+    try { if (/flex|grid/.test(w.getComputedStyle(n).display || "")) return true; } catch { /* jsdom can throw on odd nodes; ignore */ }
+    try { if (/flex|grid/.test(n.style?.display || "")) return true; } catch { /* jsdom can throw on odd nodes; ignore */ }
     return flexSelectors.some(sel => { try { return n.matches(sel); } catch { return false; } });
   };
   const disp = n => { try { return w.getComputedStyle(n).display || ""; } catch { return ""; } };

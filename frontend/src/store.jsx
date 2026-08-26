@@ -123,7 +123,6 @@ export function StoreProvider({ children }) {
       });
     });
     // Mount only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* Says the quarter rolled over since this browser last had the page open,

@@ -1,4 +1,3 @@
-import React from "react";
 import { useStore } from "../store.jsx";
 import { Avatar, Pill } from "./ui.jsx";
 

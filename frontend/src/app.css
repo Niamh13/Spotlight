@@ -610,7 +610,6 @@ td.when { color: var(--ink-2); font-size: 12.5px; font-variant-numeric: tabular-
 .ai-score__bar { flex: 1 1 auto; height: 7px; border-radius: 999px; background: var(--grid); overflow: hidden; min-width: 90px; }
 .ai-score__fill { height: 100%; border-radius: 999px; }
 .ai-rationale { font-size: 13px; color: var(--ink-2); }
-.flaglist { display: flex; flex-wrap: wrap; gap: 7px; }
 
 /* Flag plus the reason it fired. The reason is the reviewable part, so it gets
    real space rather than a tooltip. */
@@ -715,26 +714,12 @@ td.when { color: var(--ink-2); font-size: 12.5px; font-variant-numeric: tabular-
 .legend { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; font-size: 12.5px; color: var(--ink-2); }
 .legend .key { display: inline-flex; align-items: center; gap: 7px; }
 .legend .line { width: 14px; height: 2px; border-radius: 1px; }
-.legend .sw { width: 10px; height: 10px; border-radius: 3px; }
 .tablemini { width: 100%; min-width: 0; font-size: 12.5px; }
 .tablemini th, .tablemini td { padding: 6px 8px; }
 .tablemini td { font-variant-numeric: tabular-nums; }
 .share-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
 .share-row .nm { flex: 1 1 auto; }
 .share-row .vl { font-variant-numeric: tabular-nums; font-weight: 600; }
-
-/* ---------------- api log ---------------- */
-details.api { margin-top: 22px; }
-details.api summary { cursor: pointer; color: var(--ink-2); font-size: 13px; padding: 6px 0; }
-pre.log {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-  padding: 13px 16px; overflow-x: auto; font-size: 12px; line-height: 1.6;
-  color: var(--ink-2); max-height: 300px; margin: 6px 0 0;
-  font-family: ui-monospace, Consolas, monospace;
-}
-pre.log .mv { color: var(--info); font-weight: 600; }
-pre.log .ok { color: var(--good); font-weight: 600; }
-pre.log .no { color: var(--critical); font-weight: 600; }
 
 @media (max-width: 1180px) {
   .grid-main, .grid2 { grid-template-columns: 1fr; }

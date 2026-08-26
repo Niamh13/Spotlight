@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useStore } from "../store.jsx";
 import { api } from "../api.js";
 import { AI_STATUS, ACTION } from "../constants.js";

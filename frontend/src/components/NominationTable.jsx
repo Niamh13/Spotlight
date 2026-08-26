@@ -1,4 +1,3 @@
-import React from "react";
 import { useStore } from "../store.jsx";
 import { fmtDate } from "../format.js";
 import { Avatar, Pill, CategoryChip, Empty } from "./ui.jsx";
